@@ -206,6 +206,34 @@ table.list tr.click{cursor:pointer}table.list tr.click:hover td{background:var(-
 .mtile small{color:var(--muted);font-size:12px}
 .hidden-sr{position:absolute;left:-9999px}
 
+/* contacts, risk, repeat, follow-up, training calendar */
+.sendrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px}
+.sendrow .lab{font-weight:600;font-size:14px;margin-right:4px}
+.sendrow .sent{color:var(--ok);font-weight:600}
+.btn.wa{background:#1f7a3a;border-color:#1f7a3a;color:#fff;font-weight:600}
+table.ctab td{padding:6px 6px}table.ctab .in{min-height:38px;min-width:120px;font-size:14px}
+.chip.risk-high[aria-pressed="true"]{background:#b3261e;border-color:#b3261e}
+.chip.risk-medium[aria-pressed="true"]{background:#a8620a;border-color:#a8620a}
+.chip.risk-low[aria-pressed="true"]{background:#5b5f4c;border-color:#5b5f4c}
+.pill.risk{white-space:nowrap}
+.pills{display:inline-flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+.tcell.hi{border:2px solid #b3261e}
+table.list .rep{margin-left:6px}
+.tmonths{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;align-items:start}
+@media (max-width:820px){.tmonths{grid-template-columns:1fr}}
+.tmon.cur{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.trow{align-items:flex-start}
+.tcheck{flex:none;width:30px;height:30px;border-radius:8px;border:2px solid var(--line-strong);background:var(--surface);color:var(--ok);font-weight:700;cursor:pointer;margin-top:2px}
+.tcheck.on{background:var(--ok-bg);border-color:var(--ok)}
+.tcheck[disabled]{cursor:default}
+.tkind{font-size:11.5px;font-weight:600;padding:0 6px;border-radius:5px;background:var(--tint);color:var(--muted);white-space:nowrap}
+.tkind.induction{background:var(--info-bg);color:var(--info)}.tkind.job{background:var(--warn-bg);color:var(--warn)}
+.sheet table.tcal{font-size:11px}
+.sheet table.tcal th.mc,.sheet table.tcal td.mc{width:44px;text-align:center;padding:4px 2px}
+.sheet table.tcal td.pl{color:var(--paper-brand);font-weight:700}
+.sheet table.tcal td.dn{background:#dfeec4;color:#2e4a0a;font-weight:700}
+.sheet table.tcal tr.grp td{background:var(--paper-tint);font-weight:700;color:var(--paper-brand)}
+
 /* Statutory compliance */
 .ctile{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line-strong);border-left:5px solid var(--brand);border-radius:var(--r);padding:16px;cursor:pointer;text-align:left;color:var(--ink);width:100%}
 .ctile .ic{width:44px;height:44px;border-radius:11px;background:var(--tint);color:var(--brand);display:flex;align-items:center;justify-content:center;flex:none}
@@ -476,7 +504,7 @@ const REC = {
     cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['dept','Department'],['injury','Injury'],['referred','Hospital']]}
 };
 const RECORD_ORDER = ['trainings','drills','certs','ext','ppe','visitors','incidents','firstaid'];
-const COLS = ['obs','walks','zs','comp'].concat(Object.keys(REC));
+const COLS = ['obs','walks','zs','comp','tcal'].concat(Object.keys(REC));
 const ZS_CRIT = [
   ['Sort','No unwanted items, tools or material in the zone'],
   ['Sort','Scrap and rejects kept only in the marked bin'],
@@ -636,7 +664,7 @@ function paint(){
   if(v==='settings')wireSettings();
 }
 function navItem(v,label,icon,cur){return '<button type="button" class="nav" data-go="'+v+'"'+(cur?' aria-current="page"':'')+'>'+ic(icon)+h(label)+'</button>';}
-function section(){const v=S.view;if(v==='obs'||v==='obsDetail')return 'obs';if(v==='permits'||(S.arg&&S.arg.col==='permits'))return 'permits';if(v.indexOf('rep')===0||v==='reports')return 'reports';if(v==='records'||v==='recList'||v==='recView'||v==='recForm'||v==='zs'||v==='zsForm'||v==='comp'||v==='compItem')return 'records';return v;}
+function section(){const v=S.view;if(v==='obs'||v==='obsDetail')return 'obs';if(v==='permits'||(S.arg&&S.arg.col==='permits'))return 'permits';if(v.indexOf('rep')===0||v==='reports')return 'reports';if(v==='records'||v==='recList'||v==='recView'||v==='recForm'||v==='zs'||v==='zsForm'||v==='comp'||v==='compItem'||v==='tcal')return 'records';return v;}
 function side(){
   const s=section();let x='<nav class="side" aria-label="Main menu"><div class="brandblock"><b>'+h(S.settings.company)+'</b><span>OHSE · Safety Tracker</span></div>';
   x+=navItem('home','Home','home',s==='home');
@@ -710,6 +738,7 @@ function viewHtml(v){
     case 'rep2S':return vRep2S();
     case 'comp':return vComp();
     case 'compItem':return vCompItem();
+    case 'tcal':return vTcal();
     case 'settings':return vSettings();
     case 'more':return vMore();
   }
@@ -745,6 +774,7 @@ function dueItems(){
     list('ppe').forEach(function(p){if(lowStock(p))out.push({go:'recView',col:'ppe',id:p.id,title:p.item+(p.size?' – '+p.size:''),sub:'Stock '+p.stock+', re-order at '+p.minLevel,pill:'<span class="pill bad">Low stock</span>',rank:2});});
   }
   compDue().forEach(function(c){out.push(c);});
+  planExtras().forEach(function(c){out.push(c);});
   return out.sort(function(a,b){return a.rank-b.rank;});
 }
 function vHome(){
@@ -767,9 +797,9 @@ function vHome(){
   }
   x+='</section><div class="cols2">';
   const due=dueItems();
-  x+='<section class="panel" aria-labelledby="dueh"><header><h2 id="dueh">Due today</h2><span class="pill plain">'+due.length+'</span></header>';
-  x+=due.length?'<div class="rows">'+due.slice(0,12).map(function(d){return '<button type="button" class="row" '+(d.k?'data-act="compopen" data-k="'+h(d.k)+'"':'data-go="'+d.go+'" data-id="'+h(d.id)+'"'+(d.col?' data-col="'+d.col+'"':''))+'><span class="t"><b>'+h(d.title)+'</b><small>'+h(d.sub)+'</small></span>'+d.pill+'</button>';}).join('')+'</div>':'<div class="empty">Nothing due today. Observations with a target date, permits to close and certificates near expiry show up here.</div>';
-  x+='</section>';
+  x+='<section class="panel" aria-labelledby="dueh"><header><h2 id="dueh">Today\'s plan</h2><span class="pill plain">'+due.length+'</span></header>';
+  x+=due.length?'<div class="rows">'+due.slice(0,12).map(function(d){return '<button type="button" class="row" '+(d.act?'data-act="'+d.act+'"':d.k?'data-act="compopen" data-k="'+h(d.k)+'"':'data-go="'+d.go+'"'+(d.id?' data-id="'+h(d.id)+'"':'')+(d.col?' data-col="'+d.col+'"':'')+(d.filter?' data-filter="'+d.filter+'"':''))+'><span class="t"><b>'+h(d.title)+'</b><small>'+h(d.sub)+'</small></span>'+d.pill+'</button>';}).join('')+'</div>':'<div class="empty">Nothing due today. Overdue observations, permits to close, renewals, follow-ups and this month\'s trainings show up here.</div>';
+  x+='</section>'+followPanel();
   if(can('write'))x+=walkPanel();
   x+='</div></div>';
   return x;
@@ -973,7 +1003,7 @@ function markEditor(f){
   return x;
 }
 function vCapture(){
-  if(!(S.form&&S.form.kind==='capture'))S.form={kind:'capture',draft:{dept:'',kind:'Unsafe condition',note:'',label:'',owner:'',target:addDays(today(),3)},media:[]};
+  if(!(S.form&&S.form.kind==='capture')){S.form={kind:'capture',draft:{dept:'',kind:'Unsafe condition',risk:'Medium',note:'',label:'',owner:'',target:addDays(today(),3)},media:[]};S.form.autoTarget=S.form.draft.target;}
   const f=S.form;const d=f.draft;const edit=!!f.editId;
   if(f.markIdx!=null&&f.media[f.markIdx])return markEditor(f);
   const cancel=edit?'<button type="button" class="btn ghost" data-act="capcancel">Cancel</button>':'<button type="button" class="btn ghost" data-go="'+(S.prev||'home')+'">Cancel</button>';
@@ -986,7 +1016,9 @@ function vCapture(){
   const depts=unitObj(f.unitId).depts.slice();if(d.dept&&depts.indexOf(d.dept)<0)depts.push(d.dept);
   x+='<div class="field wide"><span class="lab">Department</span><div class="chips" role="group" aria-label="Department">'+depts.map(function(dp){return '<button type="button" class="chip" data-capdept="'+h(dp)+'" aria-pressed="'+(d.dept===dp)+'">'+h(dp)+'</button>';}).join('')+'</div></div>';
   x+='<div class="field wide"><span class="lab">Type</span><div class="chips" role="group" aria-label="Type">'+OBS_KINDS.map(function(k){return '<button type="button" class="chip" data-capkind="'+h(k)+'" aria-pressed="'+(d.kind===k)+'">'+h(k)+'</button>';}).join('')+'</div></div>';
+  x+=riskField(d);
   x+='<div class="field wide"><label for="caplabel">Issue label on the photo</label><input class="in" id="caplabel" maxlength="'+LABEL_MAX+'" value="'+h(d.label||'')+'" placeholder="e.g. Missing guard, Oil spill, No helmet"><small>A few words shown on top of the photo so anyone sees the problem at a glance.</small></div>';
+  if(d.dept&&(d.label||d.note)){const rp=repeatsOf({id:f.editId||'_new',unit:f.unitId||S.unit,dept:d.dept,label:d.label,note:d.note,date:d.date||today()});if(rp.length)x+='<div class="field wide"><div class="banner">Repeat problem: this looks like '+rp.length+' earlier observation'+(rp.length>1?'s':'')+' in '+h(d.dept)+' in the last 90 days ('+rp.slice(0,3).map(function(r){return fmtD(r.date);}).join(', ')+'). Look for the root cause, not just this spot.</div></div>';}
   x+='<div class="field wide"><label for="capnote">What did you see?</label><textarea class="in" id="capnote" placeholder="Short note – the phone keyboard\'s mic button works for speaking">'+h(d.note)+'</textarea>';
   if(S.sample)x+='<div class="btnrow"><button type="button" class="btn small" data-act="fixwording">Fix wording</button></div>';
   x+='</div>';
@@ -1005,7 +1037,7 @@ async function addCapFiles(files){
 function startEdit(id){
   if(!isAdmin()){toast('Only the admin can edit observations.');return;}
   const o=(S.data.obs||[]).find(function(r){return r.id===id;});if(!o)return;
-  S.form={kind:'capture',editId:id,unitId:o.unit,draft:{dept:o.dept||'',kind:o.kind||'Unsafe condition',note:o.note||'',label:o.label||'',owner:o.owner||'',target:o.target||'',date:o.date,no:o.no||''},
+  S.form={kind:'capture',editId:id,unitId:o.unit,draft:{dept:o.dept||'',kind:o.kind||'Unsafe condition',risk:o.risk||'',note:o.note||'',label:o.label||'',owner:o.owner||'',target:o.target||'',date:o.date,no:o.no||''},
     media:obsMedia(o,false).map(function(m){return Object.assign({key:newKey()},JSON.parse(JSON.stringify(m)));})};
   S.prev='obsDetail';S.view='capture';S.arg={id:id};render();window.scrollTo(0,0);
 }
@@ -1022,17 +1054,17 @@ async function saveCapture(){
     if(f.editId){
       const o=(S.data.obs||[]).find(function(r){return r.id===f.editId;});if(!o)throw new Error('gone');
       id=o.id;body=stripId(o);
-      body.dept=d.dept;body.kind=d.kind;body.note=d.note.trim();body.label=(d.label||'').trim();body.owner=(d.owner||'').trim();body.target=d.target||'';
+      body.dept=d.dept;body.kind=d.kind;body.risk=d.risk||'';body.note=d.note.trim();body.label=(d.label||'').trim();body.owner=(d.owner||'').trim();body.target=d.target||'';
       body.media=media;if(cover)body.photo=cover;else delete body.photo;
       body.updatedAt=new Date().toISOString();body.editedBy=S.uid||'';
     }else{
       id=rid();const now=new Date();
-      body={unit:S.unit,dept:d.dept,kind:d.kind,note:d.note.trim(),label:(d.label||'').trim(),owner:(d.owner||'').trim(),target:d.target||'',status:'Open',date:iso(now),createdAt:now.toISOString(),by:S.uid||'',media:media};
+      body={unit:S.unit,dept:d.dept,kind:d.kind,risk:d.risk||'',note:d.note.trim(),label:(d.label||'').trim(),owner:(d.owner||'').trim(),target:d.target||'',status:'Open',date:iso(now),createdAt:now.toISOString(),by:S.uid||'',media:media};
       if(cover)body.photo=cover;
     }
     await writeDoc('obs',id,body);
-    const wasEdit=!!f.editId;S.form=null;toast(wasEdit?'Changes saved.':'Observation saved.');
-    if(wasEdit)go('obsDetail',{id:id});else go(S.prev==='obs'?'obs':'home');
+    const wasEdit=!!f.editId;S.form=null;toast(wasEdit?'Changes saved.':'Observation saved. Send it to the HOD below.');
+    S.obsOrder=null;go('obsDetail',{id:id});
   }catch(e){
     toast(e&&e.message==='gone'?'This observation was deleted.':(e&&e.message&&e.message.indexOf('photo')>=0?e.message:'Could not save. Try again.'));
     if(btn){btn.disabled=false;btn.textContent=f.editId?'Save changes':'Save observation';}
@@ -1064,16 +1096,16 @@ function vObs(){
   if(S.queue.length)x+='<div class="panel"><header><h2>Waiting to send</h2></header><div class="rows">'+S.queue.map(function(q){return '<div class="row" style="cursor:default"><span class="t"><b>'+h(q.body.note||'Observation')+'</b><small>'+h(q.body.dept)+' · saved on this phone</small></span><span class="pill warn">Not sent</span></div>';}).join('')+'</div></div>';
   if(!rows.length)return x+'<div class="panel"><div class="empty">No observations here yet. Tap New observation to add one with a photo – it appears here and on the daily report.</div></div></div>';
   if(mode==='report')x+=obsRegister(rows,fl,dp);
-  else if(mode==='details')x+='<div class="panel"><div class="tablewrap"><table class="list"><thead><tr><th style="width:60px"><span class="hidden-sr">Photo</span></th><th>Date</th><th>Department</th><th>Type</th><th>Observation</th><th>Responsible</th><th>Target</th><th>Status</th></tr></thead><tbody>'+rows.map(function(o){return '<tr class="click" data-go="obsDetail" data-id="'+h(o.id)+'" tabindex="0"><td>'+coverHtml(o,false,'xs')+'</td><td class="num" style="white-space:nowrap">'+fmtD(o.date)+'</td><td>'+h(o.dept)+'</td><td>'+h(o.kind)+'</td><td class="clamp"><span class="two">'+(o.label?'<b>'+h(o.label)+':</b> ':'')+h(o.note||'(no note)')+'</span></td><td>'+h(o.owner)+'</td><td class="num" style="white-space:nowrap">'+fmtD(o.target)+'</td><td>'+pillFor(obsStatus(o))+'</td></tr>';}).join('')+'</tbody></table></div></div>';
-  else if(mode==='small')x+='<div class="panel"><div class="rows">'+rows.map(function(o){return '<button type="button" class="row" data-go="obsDetail" data-id="'+h(o.id)+'">'+coverHtml(o,false,'sm')+'<span class="t"><b>'+(o.label?h(o.label)+' – ':'')+h(o.note||'(no note)')+'</b><small>'+h(o.dept)+' · '+h(o.kind)+' · '+fmtD(o.date)+'</small></span>'+pillFor(obsStatus(o))+'</button>';}).join('')+'</div></div>';
-  else if(mode==='thumbs')x+='<div class="tgrid">'+rows.map(function(o){const st=obsStatus(o);return '<button type="button" class="tcell" data-go="obsDetail" data-id="'+h(o.id)+'" title="'+h(o.note||'')+'">'+coverHtml(o,false,'sq')+'<span class="tc"><i class="dot '+st+'" aria-label="'+st+'"></i>'+h(o.dept)+'</span></button>';}).join('')+'</div>';
+  else if(mode==='details')x+='<div class="panel"><div class="tablewrap"><table class="list"><thead><tr><th style="width:60px"><span class="hidden-sr">Photo</span></th><th>Date</th><th>Department</th><th>Type</th><th>Observation</th><th>Risk</th><th>Responsible</th><th>Target</th><th>Status</th></tr></thead><tbody>'+rows.map(function(o){return '<tr class="click" data-go="obsDetail" data-id="'+h(o.id)+'" tabindex="0"><td>'+coverHtml(o,false,'xs')+'</td><td class="num" style="white-space:nowrap">'+fmtD(o.date)+'</td><td>'+h(o.dept)+'</td><td>'+h(o.kind)+'</td><td class="clamp"><span class="two">'+(o.label?'<b>'+h(o.label)+':</b> ':'')+h(o.note||'(no note)')+'</span>'+repeatPill(o)+'</td><td>'+riskPill(o)+'</td><td>'+h(o.owner)+'</td><td class="num" style="white-space:nowrap">'+fmtD(o.target)+'</td><td>'+pillFor(obsStatus(o))+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+  else if(mode==='small')x+='<div class="panel"><div class="rows">'+rows.map(function(o){return '<button type="button" class="row" data-go="obsDetail" data-id="'+h(o.id)+'">'+coverHtml(o,false,'sm')+'<span class="t"><b>'+(o.label?h(o.label)+' – ':'')+h(o.note||'(no note)')+'</b><small>'+h(o.dept)+' · '+h(o.kind)+' · '+fmtD(o.date)+'</small></span>'+riskPill(o)+pillFor(obsStatus(o))+'</button>';}).join('')+'</div></div>';
+  else if(mode==='thumbs')x+='<div class="tgrid">'+rows.map(function(o){const st=obsStatus(o);return '<button type="button" class="tcell'+(isHigh(o)&&st!=='Closed'?' hi':'')+'" data-go="obsDetail" data-id="'+h(o.id)+'" title="'+h(o.note||'')+'">'+coverHtml(o,false,'sq')+'<span class="tc"><i class="dot '+st+'" aria-label="'+st+'"></i>'+h(o.dept)+'</span></button>';}).join('')+'</div>';
   else x+='<div class="cards '+(mode==='medium'?'medium':'large')+'">'+rows.map(obsCard).join('')+'</div>';
   return x+'</div>';
 }
 function obsCard(o){
   const st=obsStatus(o);
   const ph=obsMedia(o,true).length?'<div class="ph">'+coverHtml(o,false,'')+coverHtml(o,true,'')+'</div>':'<div class="ph one">'+coverHtml(o,false,'')+'</div>';
-  return '<button type="button" class="ocard" data-go="obsDetail" data-id="'+h(o.id)+'">'+ph+'<div class="meta"><div class="top"><span>'+h(o.dept)+' · '+h(o.kind)+'</span>'+pillFor(st)+'</div><b style="overflow-wrap:anywhere">'+h(o.note||o.label||'(no note)')+'</b><small style="color:var(--muted)">Raised '+fmtD(o.date)+(o.status==='Closed'?' · closed '+fmtD((o.closedAt||'').slice(0,10)):(o.target?' · target '+fmtD(o.target):''))+'</small></div></button>';
+  return '<button type="button" class="ocard" data-go="obsDetail" data-id="'+h(o.id)+'">'+ph+'<div class="meta"><div class="top"><span>'+h(o.dept)+' · '+h(o.kind)+'</span><span class="pills">'+riskPill(o)+repeatPill(o)+pillFor(st)+'</span></div><b style="overflow-wrap:anywhere">'+h(o.note||o.label||'(no note)')+'</b><small style="color:var(--muted)">Raised '+fmtD(o.date)+(o.status==='Closed'?' · closed '+fmtD((o.closedAt||'').slice(0,10)):(o.target?' · target '+fmtD(o.target):''))+'</small></div></button>';
 }
 /* ---------- printable pieces (identical on screen and in the PDF) ---------- */
 function cellMedia(o,after){
@@ -1083,7 +1115,7 @@ function cellMedia(o,after){
 }
 function qrImg(o,cls){const u=obsLink(o.id);return '<img class="'+cls+'" data-qr="'+h(u)+'" src="'+qrSrc(u)+'" alt="QR code to open this observation">';}
 function obsTRow(o,i,withDate){
-  return '<tr><td>'+(i+1)+'</td><td>'+h(o.dept)+'<br><span style="color:var(--paper-muted)">'+h(o.kind)+(withDate?'<br>'+fmtD(o.date):'')+'</span></td><td>'+h(o.note)+(o.action?'<br><span style="color:var(--paper-muted)">Action: '+h(o.action)+'</span>':'')+(o.closeNote?'<br><span style="color:var(--paper-muted)">Done: '+h(o.closeNote)+'</span>':'')+'</td><td>'+cellMedia(o,false)+'</td><td>'+cellMedia(o,true)+'</td><td>'+h(o.owner)+'</td><td>'+fmtD(o.target)+'</td><td><b>'+obsStatus(o)+'</b>'+(hasVideo(o)?qrImg(o,'qrs')+'<div class="qrnote">Scan to play video</div>':'')+'</td></tr>';
+  return '<tr><td>'+(i+1)+'</td><td>'+h(o.dept)+'<br><span style="color:var(--paper-muted)">'+h(o.kind)+(o.risk?'<br><b style="color:'+(isHigh(o)?'#b3261e':'inherit')+'">'+h(o.risk)+' risk</b>':'')+(withDate?'<br>'+fmtD(o.date):'')+'</span></td><td>'+h(o.note)+(o.action?'<br><span style="color:var(--paper-muted)">Action: '+h(o.action)+'</span>':'')+(o.closeNote?'<br><span style="color:var(--paper-muted)">Done: '+h(o.closeNote)+'</span>':'')+'</td><td>'+cellMedia(o,false)+'</td><td>'+cellMedia(o,true)+'</td><td>'+h(o.owner)+'</td><td>'+fmtD(o.target)+'</td><td><b>'+obsStatus(o)+'</b>'+(hasVideo(o)?qrImg(o,'qrs')+'<div class="qrnote">Scan to play video</div>':'')+'</td></tr>';
 }
 function obsTHead(){return '<table><thead><tr><th style="width:40px">S.No</th><th>Department</th><th>Observation</th><th style="width:134px">Before</th><th style="width:134px">After</th><th>Responsible</th><th>Target</th><th>Status</th></tr></thead><tbody>';}
 function obsRegister(rows,fl,dp){
@@ -1106,7 +1138,7 @@ function printGrid(o,after){
 function obsSheet(o){
   const st=obsStatus(o);
   let x='<article class="sheet" id="sheet" aria-label="Safety observation report">'+sheetHead(o.no||'',fmtD(o.date),o.unit)+'<h3 class="title">SAFETY OBSERVATION REPORT</h3>';
-  const kv=[['Department',o.dept],['Type',o.kind],['Raised on',fmtD(o.date)],['Status',st],['Responsible',o.owner],['Target date',o.target?fmtD(o.target):''],['Closed on',o.closedAt?fmtD(String(o.closedAt).slice(0,10)):''],['Issue',o.label]];
+  const kv=[['Department',o.dept],['Type',o.kind],['Raised on',fmtD(o.date)],['Status',st],['Responsible',o.owner],['Target date',o.target?fmtD(o.target):''],['Closed on',o.closedAt?fmtD(String(o.closedAt).slice(0,10)):''],['Issue',o.label],['Risk',o.risk],['Repeat',(function(){const n=repeatsOf(o).length;return n?'Reported '+(n+1)+' times in 90 days':'';})()]];
   x+='<div class="kv">'+kv.map(function(k){return '<div><span>'+h(k[0])+':</span> '+(k[1]?h(k[1]):'—')+'</div>';}).join('')+'</div>';
   x+='<div class="sec">Observation</div><div style="white-space:pre-line">'+h(o.note||'—')+'</div>';
   if(o.action)x+='<div class="sec">Action needed</div><div style="white-space:pre-line">'+h(o.action)+'</div>';
@@ -1161,7 +1193,8 @@ function vObsDetail(){
   if(mode==='report')right+=pdfButtons('Observation-'+(o.date||'')+'-'+String(o.dept||'').replace(/[^A-Za-z0-9]+/g,'-'),obsShareText(o));
   let x=head(o.dept+' · '+o.kind,'Raised '+fmtD(o.date)+(o.owner?' · responsible: '+o.owner:'')+(o.updatedAt?' · edited '+fmtD(String(o.updatedAt).slice(0,10)):''),right);
   if(mode==='report')return x+'<div class="content">'+banners()+'<div class="sheetwrap">'+obsSheet(o)+'</div></div>';
-  x+='<div class="content" style="max-width:1000px"><div class="cols2"><div class="panel"><header><h2>Before</h2>'+pillFor(st)+'</header>'+(obsMedia(o,false).length?viewerHtml(o,false):'<div class="empty">No photo</div>')+'<div class="body" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0;overflow-wrap:anywhere">'+h(o.note||'')+'</p>'+(o.action?'<p style="margin:0;overflow-wrap:anywhere"><b>Action needed:</b> '+h(o.action)+'</p>':'')+'<small style="color:var(--muted)">'+(o.hazard?h(o.hazard)+' · ':'')+(o.risk?h(o.risk)+' risk · ':'')+'Target '+(o.target?fmtD(o.target):'not set')+(o.no?' · '+h(o.no):'')+'</small></div></div>';
+  const rp=repeatsOf(o);
+  x+='<div class="content" style="max-width:1000px">'+(rp.length?'<div class="banner">Repeat problem: reported '+(rp.length+1)+' times in '+h(o.dept)+' in 90 days ('+rp.slice(0,4).map(function(r){return fmtD(r.date);}).join(', ')+'). Fix the root cause.</div>':'')+(o.status!=='Closed'&&can('write')?sendButtons(o):'')+'<div class="cols2"><div class="panel"><header><h2>Before</h2><span class="btnrow">'+riskPill(o)+pillFor(st)+'</span></header>'+(obsMedia(o,false).length?viewerHtml(o,false):'<div class="empty">No photo</div>')+'<div class="body" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0;overflow-wrap:anywhere">'+h(o.note||'')+'</p>'+(o.action?'<p style="margin:0;overflow-wrap:anywhere"><b>Action needed:</b> '+h(o.action)+'</p>':'')+'<small style="color:var(--muted)">'+(o.hazard?h(o.hazard)+' · ':'')+'Target '+(o.target?fmtD(o.target):'not set')+(o.no?' · '+h(o.no):'')+'</small></div></div>';
   x+='<div class="panel"><header><h2>After</h2></header>';
   if(o.status==='Closed'){x+=(obsMedia(o,true).length?viewerHtml(o,true):'<div class="empty">Closed without an after photo</div>')+'<div class="body"><p style="margin:0">'+h(o.closeNote||'Closed')+'</p><small style="color:var(--muted)">Closed '+fmtD((o.closedAt||'').slice(0,10))+'</small>'+(can('closeObs')?'<div class="btnrow" style="margin-top:10px"><button type="button" class="btn small" data-act="reopen" data-id="'+h(o.id)+'">Reopen</button></div>':'')+'</div>';}
   else if(can('closeObs')){
@@ -1279,6 +1312,40 @@ const COMP_CATS=[
     ['committee','Safety committee minutes','Factories Act Sec 41G','Quarterly meeting','Form / update committee; keep minutes'],
     ['policy','Safety policy','Factories Act Sec 7A','Review yearly','Signed by directors; displayed in units'],
     ['emergency','On-site emergency plan','Factories Act / TN Rules','Review yearly','Contact list and assembly points']
+   ]},
+  {id:'pol',n:4,title:'Company policies and EHS procedures',short:'Policies & procedures',who:'Company documents (EHS-45000 folder) – review yearly',
+   items:[
+    ['pol_conduct','Employee code of conduct policy','Company policy','Review yearly',''],
+    ['pol_conduct_ta','Employee code of conduct policy (Tamil)','Company policy','Review yearly',''],
+    ['pol_posh','Prevention of sexual harassment (POSH) policy','POSH Act 2013','Review yearly',''],
+    ['com_posh','POSH committee members list','POSH Act 2013 – internal committee','Update on change',''],
+    ['com_welfare','Welfare committee members list','Company policy','Update on change',''],
+    ['pol_bribery','Anti-bribery and anti-corruption policy','Company policy','Review yearly',''],
+    ['pol_escalation','Escalation policy','Company policy','Review yearly',''],
+    ['pol_discrimination','Discrimination policy','Company policy','Review yearly',''],
+    ['pol_grievance','Grievance handling policy','Company policy','Review yearly',''],
+    ['pol_overtime','Overtime policy','Company policy','Review yearly',''],
+    ['pol_pregnant','Pregnant worker policy','Company policy','Review yearly',''],
+    ['pol_young','Young worker policy','Company policy','Review yearly',''],
+    ['pol_trafficking','Human trafficking policy','Company policy','Review yearly',''],
+    ['pol_association','Freedom of association policy','Company policy','Review yearly',''],
+    ['pol_hr','HR procedure','Company procedure','Review yearly',''],
+    ['pol_housekeeping','Housekeeping procedure','Company procedure','Review yearly',''],
+    ['sop_hira','HIRA procedure','ISO 45001','Review yearly',''],
+    ['sop_aspect','Environmental aspect study procedure','ISO 14001','Review yearly',''],
+    ['sop_crane','Crane procedure','EHS procedure','Review yearly',''],
+    ['sop_forklift','Forklift and stacker procedure','EHS procedure','Review yearly',''],
+    ['sop_mmh','Manual material handling procedure','EHS procedure','Review yearly',''],
+    ['sop_machinery','Machinery safety procedure','EHS procedure','Review yearly',''],
+    ['sop_electrical','Electrical safety procedure','EHS procedure','Review yearly',''],
+    ['sop_ppe','PPE management procedure','EHS procedure','Review yearly',''],
+    ['sop_chemical','Chemical management procedure','EHS procedure','Review yearly',''],
+    ['sop_dg','DG operation procedure','EHS procedure','Review yearly',''],
+    ['sop_compressor','Compressor operation procedure','EHS procedure','Review yearly',''],
+    ['sop_scrubber','Scrubber operation procedure','EHS procedure','Review yearly',''],
+    ['sop_hw','Hazardous waste management procedure','EHS procedure','Review yearly',''],
+    ['sop_stp','STP procedure','EHS procedure','Review yearly',''],
+    ['sop_etp','ETP procedure','EHS procedure','Review yearly','']
    ]}
 ];
 function compKey(uid,k){return (uid||S.unit)+'_'+k;}
@@ -1318,7 +1385,7 @@ function vComp(){
   x+='<section class="panel"><header><h2>'+cat.n+'. '+h(cat.title)+'</h2><small style="color:var(--muted)">'+h(cat.who)+'</small></header><div class="rows">';
   x+=items.map(function(it,i){const d=compDoc(it.k);const st=compState(it,d);const nd=d&&d.docs?d.docs.length:0;
     return '<button type="button" class="row crow" data-act="compopen" data-k="'+h(it.k)+'"><span class="cno">'+cat.n+'.'+(i+1)+'</span><span class="t"><b>'+h(it.title)+'</b><small>'+h(it.freq)+(it.basis?' · '+h(it.basis):'')+'</small><span class="tks">'+(st.s==='na'?'':(it.link?tick(linkCount(it.link)>0,'In app ('+linkCount(it.link)+')'):tick(nd>0,'Scan'+(nd>1?' ×'+nd:'')))+tick(d&&d.hard,'Hard copy filed'))+'</span></span>'+st.pill+'</button>';}).join('');
-  x+='</div>'+(can('write')?'<div class="body"><button type="button" class="btn small" data-act="compadd" data-cat="'+cat.id+'">'+ic('plus',16)+'Add an item to this list</button></div>':'')+'</section>';
+  x+='</div>'+(can('write')?'<div class="body btnrow"><button type="button" class="btn small" data-act="compadd" data-cat="'+cat.id+'">'+ic('plus',16)+'Add an item to this list</button><button type="button" class="btn small" data-act="compimport">'+ic('down',16)+'Import PDFs from the computer</button><small style="color:var(--muted);flex-basis:100%">Import: pick the files in D:\\EHS-45000\\SBC App Import (PDF) – each one attaches to its item by its name.</small></div>':'')+'</section>';
   return x+'</div>';
 }
 function compReport(){
@@ -1442,11 +1509,262 @@ async function compClick(t){
 try{S.compTab=localStorage.getItem('sbc_comptab')||'lic';}catch(e){S.compTab='lic';}
 
 
+/* ---------- Department contacts (HOD + backup) and sending to them ---------- */
+function deptContact(uid,dept){const u=unitObj(uid);return (u&&u.contacts&&u.contacts[dept])||{};}
+function phoneDigits(m){let d=String(m||'').replace(/[^0-9]/g,'');if(d.length===10)d='91'+d;if(d.length===11&&d[0]==='0')d='91'+d.slice(1);return d;}
+function waUrl(mobile,text){const n=phoneDigits(mobile);return 'https://wa.me/'+(n||'')+'?text='+encodeURIComponent(text);}
+function mailUrl(to,subject,body){return 'mailto:'+encodeURIComponent(to||'').replace(/%2C/g,',').replace(/%40/g,'@')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);}
+function obsMsg(o){
+  return S.settings.company+' – Safety observation\n'+unitName(o.unit)+' · '+o.dept+' · '+fmtD(o.date)+'\n'+(o.label?'Issue: '+o.label+'\n':'')+(o.risk?'Risk: '+o.risk+'\n':'')+(o.note||'')+'\nTarget date: '+(o.target?fmtD(o.target):'not set')+'\nPlease close it and add the after photo in the app.\n'+obsLink(o.id);
+}
+function sendButtons(o){
+  const c=deptContact(o.unit,o.dept);const subj='Safety observation – '+o.dept+(o.label?' – '+o.label:'');const msg=obsMsg(o);
+  if(!c.hodMob&&!c.hodMail&&!c.bkMob&&!c.bkMail)return '<div class="sendrow"><small>No HOD contact saved for '+h(o.dept)+'. '+(can('settings')?'<button type="button" class="btn small" data-go="settings">Add it in Settings</button>':'')+'</small><a class="btn small" target="_blank" rel="noopener" href="'+h(waUrl('',msg))+'" data-act="sentlog" data-id="'+h(o.id)+'" data-to="WhatsApp">WhatsApp</a></div>';
+  let x='<div class="sendrow"><span class="lab">Send to HOD</span>';
+  if(c.hodMob)x+='<a class="btn small wa" target="_blank" rel="noopener" href="'+h(waUrl(c.hodMob,msg))+'" data-act="sentlog" data-id="'+h(o.id)+'" data-to="'+h(c.hod||'HOD')+'">WhatsApp '+h(c.hod||'HOD')+'</a>';
+  if(c.bkMob)x+='<a class="btn small" target="_blank" rel="noopener" href="'+h(waUrl(c.bkMob,msg))+'" data-act="sentlog" data-id="'+h(o.id)+'" data-to="'+h(c.bk||'Backup')+'">WhatsApp '+h(c.bk||'backup')+'</a>';
+  const mails=[c.hodMail,c.bkMail].filter(Boolean).join(',');
+  if(mails)x+='<a class="btn small" href="'+h(mailUrl(mails,subj,msg))+'" data-act="sentlog" data-id="'+h(o.id)+'" data-to="Email">Email</a>';
+  if(o.sentAt)x+='<small class="sent">✓ Sent '+fmtDT(String(o.sentAt).slice(0,16).replace('T',' '))+(o.sentTo?' to '+h(o.sentTo):'')+'</small>';
+  return x+'</div>';
+}
+async function logSent(id,to,field){
+  const o=(S.data.obs||[]).find(function(r){return r.id===id;});if(!o)return;
+  const b=stripId(o);b[field||'sentAt']=new Date().toISOString();if(!field)b.sentTo=to;
+  try{await writeDoc('obs',id,b);}catch(e){}
+}
+function contactsPanel(){
+  const st=S.settings;
+  let x='<section class="panel"><header><h2>Department contacts</h2><small style="color:var(--muted)">HOD and backup for each department. Picking a department in a new observation fills in the HOD, and the Send buttons go to these numbers.</small></header><div class="body" style="display:flex;flex-direction:column;gap:18px">';
+  st.units.forEach(function(u,ui){
+    x+='<div><b style="display:block;margin-bottom:8px">'+h(u.name)+'</b><div class="tablewrap"><table class="list ctab"><thead><tr><th>Department</th><th>HOD name</th><th>HOD mobile</th><th>HOD email</th><th>Backup name</th><th>Backup mobile</th><th>Backup email</th></tr></thead><tbody>';
+    u.depts.forEach(function(d,di){const c=(u.contacts||{})[d]||{};const f=function(k,type,ph){return '<td><input class="in" type="'+type+'" data-ct="'+ui+'|'+di+'|'+k+'" value="'+h(c[k]||'')+'" placeholder="'+ph+'" aria-label="'+h(d)+' '+k+'"></td>';};
+      x+='<tr><td><b>'+h(d)+'</b></td>'+f('hod','text','Name')+f('hodMob','tel','Mobile')+f('hodMail','email','name@sbcmail.in')+f('bk','text','Name')+f('bkMob','tel','Mobile')+f('bkMail','email','Email')+'</tr>';});
+    x+='</tbody></table></div></div>';
+  });
+  x+='<div class="form"><div class="field"><label for="s_dirmail">Directors\' email(s) for the weekly scorecard</label><input class="in" id="s_dirmail" type="email" multiple value="'+h(st.dirMail||'')+'" placeholder="e.g. stalin@sbcmail.in, lenin@sbcmail.in"></div><div class="field"><label for="s_dirmob">Directors\' WhatsApp number (or group admin)</label><input class="in" id="s_dirmob" type="tel" value="'+h(st.dirMob||'')+'" placeholder="Mobile number"></div></div>';
+  x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="savecontacts">Save contacts</button></div></div></section>';
+  return x;
+}
+async function saveContacts(){
+  const st=JSON.parse(JSON.stringify(S.settings));
+  document.querySelectorAll('[data-ct]').forEach(function(el){const p=el.dataset.ct.split('|');const u=st.units[+p[0]];const d=u&&u.depts[+p[1]];if(!d)return;u.contacts=u.contacts||{};u.contacts[d]=u.contacts[d]||{};u.contacts[d][p[2]]=el.value.trim();});
+  const dm=document.getElementById('s_dirmail');if(dm)st.dirMail=dm.value.trim();const dmo=document.getElementById('s_dirmob');if(dmo)st.dirMob=dmo.value.trim();
+  await putSettings(st);toast('Contacts saved.');
+}
+function autoFillOwner(){
+  const f=S.form;if(!f||f.kind!=='capture')return;const d=f.draft;const c=deptContact(f.unitId||S.unit,d.dept);
+  if(c.hod&&(!d.owner||d.owner===f.autoOwner)){d.owner=c.hod;f.autoOwner=c.hod;}
+}
+
+/* ---------- Risk rating ---------- */
+const RISKS=['High','Medium','Low'];const RISK_DAYS={High:1,Medium:3,Low:7};
+function riskPill(o){const r=o&&o.risk;if(!r)return '';const k=String(r).toLowerCase();return '<span class="pill '+(k.indexOf('high')===0?'bad':k.indexOf('med')===0?'warn':'plain')+' risk">'+h(r)+' risk</span>';}
+function isHigh(o){return /^high/i.test(String(o.risk||''));}
+function setRisk(r){
+  const f=S.form;if(!f||f.kind!=='capture')return;readCapture();const d=f.draft;
+  if(!d.target||d.target===f.autoTarget){d.target=addDays(f.editId?(d.date||today()):today(),RISK_DAYS[r]);f.autoTarget=d.target;}
+  d.risk=r;render();
+}
+function riskField(d){return '<div class="field wide"><span class="lab">Risk</span><div class="chips" role="group" aria-label="Risk">'+RISKS.map(function(r){return '<button type="button" class="chip risk-'+r.toLowerCase()+'" data-act="setrisk" data-r="'+r+'" aria-pressed="'+(d.risk===r)+'">'+r+'</button>';}).join('')+'</div><small>Target date sets itself: High 1 day, Medium 3 days, Low 7 days. You can still change it.</small></div>';}
+
+/* ---------- Repeat problems ---------- */
+const STOP=('the and with near from not are was has had any all one two its out top end per via that this have has not for are was were been into onto over under area areas shop floor kept keep found seen observed safety unsafe condition act workers worker machine near miss without no').split(' ');
+function words(s){return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').split(/\s+/).filter(function(w){return w.length>=3&&STOP.indexOf(w)<0;});}
+function sameIssue(a,b){
+  const la=String(a.label||'').trim().toLowerCase(),lb=String(b.label||'').trim().toLowerCase();
+  if(la&&lb)return la===lb||words(la).some(function(w){return words(lb).indexOf(w)>=0;});
+  const wa=words((a.label||'')+' '+(a.note||'')),wb=words((b.label||'')+' '+(b.note||''));
+  let n=0;wa.forEach(function(w){if(wb.indexOf(w)>=0)n++;});return n>=2;
+}
+function repeatsOf(o,days){
+  days=days||90;const from=addDays(o.date||today(),-days),to=o.date||today();
+  return (S.data.obs||[]).filter(function(r){return r.id!==o.id&&(r.unit||S.unit)===(o.unit||S.unit)&&r.dept===o.dept&&String(r.date||'')>=from&&String(r.date||'')<=to&&sameIssue(o,r);});
+}
+function repeatPill(o){const n=repeatsOf(o).length;return n?'<span class="pill info rep" title="Same issue reported before in '+h(o.dept)+'">Repeat ×'+(n+1)+'</span>':'';}
+function repeatGroups(uids,days){
+  const seen={};const out=[];
+  (S.data.obs||[]).filter(function(o){return uids.indexOf(o.unit||S.unit)>=0&&String(o.date||'')>=addDays(today(),-(days||90));}).slice().sort(byNewest).forEach(function(o){
+    if(seen[o.id])return;const reps=repeatsOf(o,days);if(!reps.length)return;reps.forEach(function(r){seen[r.id]=1;});seen[o.id]=1;
+    out.push({o:o,n:reps.length+1,open:[o].concat(reps).filter(function(x){return x.status!=='Closed';}).length});
+  });
+  return out.sort(function(a,b){return b.n-a.n;});
+}
+
+/* ---------- Today's plan (Home), HOD follow-up, Saturday scorecard ---------- */
+function followUps(){
+  if(!can('write'))return [];const t1=addDays(today(),1);const by={};
+  list('obs').filter(function(o){return o.status!=='Closed'&&o.target&&o.target<=t1;}).forEach(function(o){const c=deptContact(o.unit,o.dept);const k=(c.hod||o.owner||o.dept)+'|'+o.dept;(by[k]=by[k]||{c:c,dept:o.dept,who:c.hod||o.owner||'',items:[]}).items.push(o);});
+  return Object.keys(by).map(function(k){return by[k];});
+}
+function followMsg(g){return 'Reminder – safety observations for '+g.dept+' due for closing:\n'+g.items.map(function(o,i){return (i+1)+'. '+(o.label?o.label+' – ':'')+(o.note||o.kind)+' (target '+fmtD(o.target)+(obsStatus(o)==='Overdue'?', OVERDUE':'')+')';}).join('\n')+'\nPlease close them and add the after photos in the app.\n– OHSE';}
+function followPanel(){
+  const g=followUps();if(!g.length)return '';
+  return '<section class="panel" aria-labelledby="fuh"><header><h2 id="fuh">Follow up with HODs</h2><span class="pill warn">'+g.length+'</span></header><div class="rows">'+g.map(function(x){const over=x.items.filter(function(o){return obsStatus(o)==='Overdue';}).length;const last=x.items.map(function(o){return o.remindedAt||'';}).sort().pop();
+    return '<div class="row" style="cursor:default;flex-wrap:wrap"><span class="t"><b>'+h(x.dept)+(x.who?' · '+h(x.who):'')+'</b><small>'+x.items.length+' due by tomorrow'+(over?' · '+over+' overdue':'')+(last?' · reminded '+fmtD(last.slice(0,10)):'')+'</small></span>'+(x.c.hodMob||x.c.bkMob?'<a class="btn small wa" target="_blank" rel="noopener" href="'+h(waUrl(x.c.hodMob||x.c.bkMob,followMsg(x)))+'" data-act="remindlog" data-ids="'+h(x.items.map(function(o){return o.id;}).join(','))+'">Remind on WhatsApp</a>':'<a class="btn small" target="_blank" rel="noopener" href="'+h(waUrl('',followMsg(x)))+'" data-act="remindlog" data-ids="'+h(x.items.map(function(o){return o.id;}).join(','))+'">WhatsApp</a>')+(x.c.hodMail?'<a class="btn small" href="'+h(mailUrl([x.c.hodMail,x.c.bkMail].filter(Boolean).join(','),'Reminder: safety observations due – '+x.dept,followMsg(x)))+'" data-act="remindlog" data-ids="'+h(x.items.map(function(o){return o.id;}).join(','))+'">Email</a>':'')+'</div>';}).join('')+'</div></section>';
+}
+function scorecardDue(){const d=new Date();return can('reports')&&(d.getDay()===6||d.getDay()===0)&&(S.settings.lastScorecard||'')<weekStart();}
+function planExtras(){
+  const out=[];
+  if(scorecardDue())out.push({act:'scorecard',title:'Send the weekly scorecard to the directors',sub:'One page for '+(S.settings.dirMail?S.settings.dirMail:'Stalin sir and Lenin sir')+' – Saturday',pill:'<span class="pill info">This week</span>',rank:0});
+  const hi=list('obs').filter(function(o){return o.status!=='Closed'&&isHigh(o);});
+  if(hi.length)out.push({go:'obs',filter:'Open',title:hi.length+' high-risk observation'+(hi.length>1?'s':'')+' open',sub:'Close these first',pill:'<span class="pill bad">High risk</span>',rank:0});
+  const rep=repeatGroups([S.unit],90).filter(function(g){return g.open;});
+  if(rep.length)out.push({go:'obs',filter:'Open',title:rep.length+' repeat problem'+(rep.length>1?'s':'')+' – fix the root cause',sub:rep.slice(0,3).map(function(g){return g.o.dept+': '+(g.o.label||g.o.note||g.o.kind)+' ×'+g.n;}).join(' · '),pill:'<span class="pill info">Repeat</span>',rank:1});
+  tcalThisMonth().forEach(function(it){out.push({go:'tcal',title:'Training this month: '+it.topic,sub:it.who||'',pill:'<span class="pill plain">Planned</span>',rank:3});});
+  return out;
+}
+
+/* ---------- Training calendar Nov 2026 – Oct 2027 ---------- */
+const TCAL_YEAR='2026-27';
+const TCAL_MONTHS=['2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05','2027-06','2027-07','2027-08','2027-09','2027-10'];
+const TCAL_SEED=[
+  ['monthly','New joiner safety induction (every month)','All new workers and contract staff','induction'],
+  ['2026-11','Safety induction catch-up – batch 1 (PDC, GDC, LPDC)','All workers in these departments','induction'],
+  ['2026-11','Visitor and contractor induction at the security gate','Security staff, contractors','induction'],
+  ['2026-12','Safety induction catch-up – batch 2 (Fettling, Machine shop, Heat treatment, Final export, Stores, Maintenance)','All workers in these departments','induction'],
+  ['2026-12','Safety induction – Unit 8','All Unit 8 workers','induction'],
+  ['2027-01','Safety induction for staff, supervisors and HODs (EHS policy, roles, emergency plan)','Staff, supervisors, HODs','induction'],
+  ['2027-01','Personal protective equipment (PPE)','All departments','general'],
+  ['2027-02','Furnace and molten metal safety','PDC, GDC, LPDC','job'],
+  ['2027-02','Die casting machine safety and lockout (LOTO)','PDC, LPDC operators','job'],
+  ['2027-03','Machine safeguarding, hand and power tools','Fettling, Machine shop, Tool room','job'],
+  ['2027-03','Electrical safety and LOTO','Maintenance electricians','job'],
+  ['2027-04','Forklift and stacker safety','Stores, Final export drivers','job'],
+  ['2027-04','Manual material handling','Stores, Final export, Fettling','job'],
+  ['2027-05','EOT crane and lifting tackles','PDC, Maintenance','job'],
+  ['2027-05','Fire safety, extinguisher use and mock drill','All departments','general'],
+  ['2027-06','Chemical management and MSDS','Heat treatment, Powder coating, ETP/STP','job'],
+  ['2027-06','Hazardous waste management','Stores, Maintenance, ETP/STP','job'],
+  ['2027-07','Work at height and permit to work','Maintenance, contractors','job'],
+  ['2027-07','First aid training','First aiders of each department','general'],
+  ['2027-08','HIRA and risk assessment','Supervisors and HODs','general'],
+  ['2027-08','5S and housekeeping','All departments','general'],
+  ['2027-09','Environment awareness, ETP / STP operation','ETP/STP operators, all departments','job'],
+  ['2027-09','Road safety and defensive driving','Drivers, forklift operators','general'],
+  ['2027-10','Emergency preparedness – second mock drill (evacuation)','All departments','general'],
+  ['2027-10','Legal and statutory awareness, EHS internal audit','HODs, safety committee','general']
+];
+function monLabel(m){if(m==='monthly')return 'Every month';const p=m.split('-');return MON[+p[1]-1]+" '"+p[0].slice(2);}
+function tcalDoc(uid){return (S.data.tcal||[]).find(function(r){return r.id===(uid||S.unit)+'_'+TCAL_YEAR;});}
+function tcalItems(uid){const d=tcalDoc(uid);if(d&&d.items)return d.items;return TCAL_SEED.map(function(s,i){return {id:'s'+i,month:s[0],topic:s[1],who:s[2],kind:s[3],done:{}};});}
+const TSTOP=('safety training awareness and with for all the workers department departments every month refresher').split(' ');
+function twords(s){return String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').split(/\s+/).filter(function(w){return w.length>=3&&TSTOP.indexOf(w)<0;});}
+function tcalHeld(it,m,uid){
+  /* a training record in that month whose title shares a key word with the topic */
+  const tw=twords(it.topic);
+  return list('trainings').filter(function(r){return (r.unit||S.unit)===(uid||S.unit)&&String(r.date||'').slice(0,7)===m&&twords(r.title||r.topic||'').some(function(w){return tw.indexOf(w)>=0;});});
+}
+function tcalDone(it,m,uid){return !!((it.done||{})[m])||tcalHeld(it,m,uid).length>0;}
+function tcalThisMonth(){
+  if(!can('write'))return [];const m=today().slice(0,7);if(TCAL_MONTHS.indexOf(m)<0)return [];
+  return tcalItems().filter(function(it){return it.month===m&&!tcalDone(it,m);});
+}
+function vTcal(){
+  const items=tcalItems();const mode=S.tcalMode||'months';const edit=can('write');
+  let x=head('Training calendar','November 2026 – October 2027 · '+unitName()+' · induction first, then job-specific','<span class="desk-only">'+deskUnit()+'</span><button type="button" class="btn ghost" data-go="recList" data-col="trainings">Training records</button>');
+  x+='<div class="content">'+banners();
+  const plan=items.filter(function(i){return i.month!=='monthly';});const done=plan.filter(function(i){return tcalDone(i,i.month);}).length;
+  x+='<section class="tiles"><div class="tile" style="cursor:default"><div class="l">Planned trainings</div><div class="n">'+plan.length+'</div></div><div class="tile" style="cursor:default"><div class="l">Completed</div><div class="n">'+done+'</div></div><div class="tile'+(tcalThisMonth().length?' warn':'')+'" style="cursor:default"><div class="l">Due this month</div><div class="n">'+tcalThisMonth().length+'</div></div></section>';
+  x+='<div class="btnrow" style="justify-content:space-between"><div class="seg" role="group" aria-label="View"><button type="button" data-act="tcalmode" data-m="months" aria-pressed="'+(mode==='months')+'">By month</button><button type="button" data-act="tcalmode" data-m="sheet" aria-pressed="'+(mode==='sheet')+'">Calendar sheet / PDF</button></div>'+(edit&&mode==='months'?'<button type="button" class="btn small" data-act="tcaladd">'+ic('plus',16)+'Add a training</button>':'')+'</div>';
+  if(S.form&&S.form.kind==='tcal')x+=tcalForm();
+  if(mode==='sheet')return x+tcalSheet(items)+'</div>';
+  x+='<small style="color:var(--muted)">A training is ticked automatically when a training record with a matching title is saved in that month. You can also tick it by hand.</small><div class="tmonths">';
+  ['monthly'].concat(TCAL_MONTHS).forEach(function(m){
+    const its=items.filter(function(i){return i.month===m;});if(!its.length)return;
+    const cur=m===today().slice(0,7);
+    x+='<section class="panel tmon'+(cur?' cur':'')+'"><header><h2>'+(m==='monthly'?'Every month':monLabel(m).replace("'"," 20"))+'</h2>'+(cur?'<span class="pill warn">This month</span>':'')+'</header><div class="rows">'+its.map(function(it){
+      const dn=m==='monthly'?false:tcalDone(it,m);const held=m==='monthly'?[]:tcalHeld(it,m);
+      return '<div class="row trow" style="cursor:default">'+(m==='monthly'?'<span class="tkind '+it.kind+'">'+(it.kind==='induction'?'Induction':it.kind==='job'?'Job-specific':'General')+'</span>':'<button type="button" class="tcheck'+(dn?' on':'')+'" '+(edit&&!held.length?'data-act="tcaltick" data-id="'+h(it.id)+'" data-m="'+m+'"':'disabled')+' aria-pressed="'+dn+'" aria-label="Mark done">'+(dn?'✓':'')+'</button>')+'<span class="t"><b>'+h(it.topic)+'</b><small>'+h(it.who||'')+(m!=='monthly'?' · <span class="tkind '+it.kind+'">'+(it.kind==='induction'?'Induction':it.kind==='job'?'Job-specific':'General')+'</span>':'')+(held.length?' · held '+fmtD(held[0].date):'')+'</small></span>'+(edit?'<button type="button" class="btn small ghost" data-act="tcaledit" data-id="'+h(it.id)+'">Edit</button>':'')+'</div>';}).join('')+'</div></section>';
+  });
+  return x+'</div></div>';
+}
+function tcalSheet(items){
+  let x='<div class="btnrow">'+pdfButtons('Training-calendar-'+TCAL_YEAR+'-'+unitName().replace(/[^A-Za-z0-9]+/g,'-'),'')+'</div>';
+  x+='<div class="sheetwrap"><article class="sheet wide" id="sheet">'+sheetHead(S.settings.docPrefix+'/TC/'+TCAL_YEAR,'Nov 2026 – Oct 2027')+'<h3 class="title">HEALTH &amp; SAFETY TRAINING CALENDAR 2026 – 27</h3>';
+  x+='<table class="tcal"><thead><tr><th style="width:34px">S.No</th><th>Training</th><th style="width:150px">For whom</th>'+TCAL_MONTHS.map(function(m){return '<th class="mc">'+monLabel(m)+'</th>';}).join('')+'</tr></thead><tbody>';
+  let n=0;
+  ['induction','general','job'].forEach(function(k){
+    const its=items.filter(function(i){return i.kind===k;});if(!its.length)return;
+    x+='<tr class="grp"><td colspan="'+(3+TCAL_MONTHS.length)+'">'+(k==='induction'?'A. Induction (complete first)':k==='general'?'B. General safety':'C. Department / job-specific')+'</td></tr>';
+    its.forEach(function(it){n++;x+='<tr><td>'+n+'</td><td>'+h(it.topic)+'</td><td>'+h(it.who||'')+'</td>'+TCAL_MONTHS.map(function(m){const planned=it.month==='monthly'||it.month===m;if(!planned)return '<td class="mc"></td>';const dn=tcalDone(it,m);return '<td class="mc '+(dn?'dn':'pl')+'">'+(dn?'✓':'P')+'</td>';}).join('')+'</tr>';});
+  });
+  x+='</tbody></table><div style="font-size:11.5px;color:var(--paper-muted)">P = planned · ✓ = completed (training record saved in the app)</div>';
+  x+=signBlock('Prepared by – OHSE Manager','Approved by – Director')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div>';
+  return x;
+}
+function tcalForm(){
+  const d=S.form.draft;
+  return '<section class="panel"><header><h2>'+(S.form.id?'Edit training':'Add a training')+'</h2></header><div class="body"><div class="form"><div class="field wide"><label for="t_topic">Training topic</label><input class="in" id="t_topic" value="'+h(d.topic||'')+'"></div><div class="field"><label for="t_month">Month</label><select class="in" id="t_month"><option value="monthly"'+(d.month==='monthly'?' selected':'')+'>Every month</option>'+TCAL_MONTHS.map(function(m){return '<option value="'+m+'"'+(d.month===m?' selected':'')+'>'+monLabel(m).replace("'"," 20")+'</option>';}).join('')+'</select></div><div class="field"><label for="t_kind">Type</label><select class="in" id="t_kind">'+[['induction','Induction'],['general','General safety'],['job','Department / job-specific']].map(function(k){return '<option value="'+k[0]+'"'+(d.kind===k[0]?' selected':'')+'>'+k[1]+'</option>';}).join('')+'</select></div><div class="field wide"><label for="t_who">For whom (departments / people)</label><input class="in" id="t_who" value="'+h(d.who||'')+'"></div></div><div class="btnrow" style="justify-content:flex-end;margin-top:12px">'+(S.form.id?'<button type="button" class="btn danger small" data-act="tcaldel">'+(S.confirmDel==='tcal'?'Tap again to remove':'Remove')+'</button>':'')+'<button type="button" class="btn ghost" data-act="tcalcancel">Cancel</button><button type="button" class="btn primary" data-act="tcalsave">Save</button></div></div></section>';
+}
+async function tcalWrite(items){
+  try{await writeDoc('tcal',S.unit+'_'+TCAL_YEAR,{unit:S.unit,year:TCAL_YEAR,items:items,updatedAt:new Date().toISOString(),by:S.uid||''});}catch(e){toast('Could not save the calendar.');}
+}
+async function tcalClick(t){
+  const a=t.dataset.act;if(!a||a.indexOf('tcal')!==0)return false;
+  const items=JSON.parse(JSON.stringify(tcalItems()));
+  switch(a){
+    case 'tcalmode':S.tcalMode=t.dataset.m;S.form=null;render();return true;
+    case 'tcaltick':{const it=items.find(function(i){return i.id===t.dataset.id;});if(!it)return true;it.done=it.done||{};if(it.done[t.dataset.m])delete it.done[t.dataset.m];else it.done[t.dataset.m]=today();await tcalWrite(items);render();return true;}
+    case 'tcaladd':S.form={kind:'tcal',id:null,draft:{month:TCAL_MONTHS.indexOf(today().slice(0,7))>=0?today().slice(0,7):TCAL_MONTHS[0],kind:'job',topic:'',who:''}};render();return true;
+    case 'tcaledit':{const it=items.find(function(i){return i.id===t.dataset.id;});if(!it)return true;S.form={kind:'tcal',id:it.id,draft:JSON.parse(JSON.stringify(it))};render();window.scrollTo(0,0);return true;}
+    case 'tcalcancel':S.form=null;render();return true;
+    case 'tcalsave':{const v=function(id){return (document.getElementById(id)||{}).value||'';};const topic=v('t_topic').trim();if(!topic){toast('Write the training topic.');return true;}
+      const row={topic:topic,month:v('t_month'),kind:v('t_kind'),who:v('t_who').trim()};
+      if(S.form.id){const it=items.find(function(i){return i.id===S.form.id;});Object.assign(it,row);}else items.push(Object.assign({id:'t'+Date.now().toString(36),done:{}},row));
+      S.form=null;await tcalWrite(items);toast('Calendar saved.');render();return true;}
+    case 'tcaldel':{if(S.confirmDel!=='tcal'){S.confirmDel='tcal';render();return true;}S.confirmDel=null;const id=S.form.id;S.form=null;await tcalWrite(items.filter(function(i){return i.id!==id;}));toast('Removed.');render();return true;}
+  }
+  return false;
+}
+
+/* ---------- Policies and EHS procedures: bulk import of PDFs named "<item key> - <title>.pdf" ---------- */
+function compAllItems(){const out=[];COMP_CATS.forEach(function(c){compItems(c).forEach(function(it){out.push(it);});});return out;}
+async function compImport(files){
+  const all=compAllItems();let ok=0,skip=[];const groups={};
+  files.forEach(function(f){const m=/^([a-z0-9_]+)\s*-\s*/i.exec(f.name||'');const it=m&&all.find(function(i){return i.k===m[1];});if(!it){skip.push(f.name);return;}(groups[it.k]=groups[it.k]||[]).push(f);});
+  const keys=Object.keys(groups);
+  for(let i=0;i<keys.length;i++){
+    const k=keys[i];toast('Importing '+(i+1)+' of '+keys.length+'…');
+    try{
+      const d=compDoc(k);const body=d?stripId(d):{unit:S.unit,cat:(compFind(k)||{cat:{}}).cat.id,key:k,docs:[],hard:false};
+      body.docs=(body.docs||[]).slice();
+      for(const f of groups[k]){
+        if(body.docs.some(function(x){return x.name===f.name;}))continue;
+        if(f.size>8*1024*1024){skip.push(f.name+' (over 8 MB)');continue;}
+        const isPdf=/pdf/i.test(f.type)||/\.pdf$/i.test(f.name);
+        const blob=isPdf?f:await compress(f);
+        body.docs.push({id:await uploadPhoto(blob),type:isPdf?'pdf':'image',mime:isPdf?'application/pdf':'image/jpeg',name:f.name});
+      }
+      body.updatedAt=new Date().toISOString();body.by=S.uid||'';
+      await writeDoc('comp',compKey(S.unit,k),body);ok++;
+    }catch(e){skip.push(k);}
+  }
+  toast('Imported into '+ok+' item'+(ok===1?'':'s')+(skip.length?'. Not matched: '+skip.slice(0,3).join(', ')+(skip.length>3?' and '+(skip.length-3)+' more':''):'.')+' Photos and files upload in the background – keep the app open a few minutes.');
+  render();
+}
+
+/* clicks for this block */
+async function extClick(t){
+  const a=t.dataset.act;if(!a)return false;
+  if(await tcalClick(t))return true;
+  switch(a){
+    case 'setrisk':setRisk(t.dataset.r);return true;
+    case 'savecontacts':saveContacts();return true;
+    case 'sentlog':logSent(t.dataset.id,t.dataset.to);return false;
+    case 'remindlog':(t.dataset.ids||'').split(',').filter(Boolean).forEach(function(id){logSent(id,'','remindedAt');});return false;
+    case 'scorecard':S.range={from:addDays(today(),-6),to:today()};go('repSummary');return true;
+    case 'scoresent':{const st=JSON.parse(JSON.stringify(S.settings));st.lastScorecard=weekStart();await putSettings(st);return false;}
+    case 'compimport':pickFile({multiple:true,accept:'application/pdf,image/*'},function(fs){compImport(fs);});return true;
+  }
+  return false;
+}
+
 /* ---------- Generic records ---------- */
 function vRecords(){
   let x=head('Records','Everything kept for audits, filed by date and unit','<span class="desk-only">'+deskUnit()+'</span>');
   const zw=zsWeekAvg(S.unit,weekStart());
-  x+='<div class="content">'+banners()+'<button type="button" class="ctile" data-go="comp"><span class="ic">'+ic('certs')+'</span><span class="t"><b>Statutory compliance</b><small>Licences, third-party certificates, registers and records · '+(function(){const c=compSummary();return c.done+' of '+c.tot+' complete'+(c.exp?' · '+c.exp+' expired':'')+(c.due?' · '+c.due+' due soon':'');})()+'</small></span>'+ic('chev',18)+'</button><div class="morelist"><button type="button" class="mtile" data-go="zs"><span class="ic">'+ic('records')+'</span><b>2S zone score</b><small>Weekly · '+(zw==null?'not scored yet':zw+'% this week')+'</small></button>'+RECORD_ORDER.map(function(c){const n=list(c).length;return '<button type="button" class="mtile" data-go="recList" data-col="'+c+'"><span class="ic">'+ic(REC[c].icon)+'</span><b>'+h(REC[c].label)+'</b><small>'+h(REC[c].sub)+' · '+n+'</small></button>';}).join('')+'</div></div>';
+  x+='<div class="content">'+banners()+'<button type="button" class="ctile" data-go="comp"><span class="ic">'+ic('certs')+'</span><span class="t"><b>Statutory compliance</b><small>Licences, third-party certificates, registers and records · '+(function(){const c=compSummary();return c.done+' of '+c.tot+' complete'+(c.exp?' · '+c.exp+' expired':'')+(c.due?' · '+c.due+' due soon':'');})()+'</small></span>'+ic('chev',18)+'</button><button type="button" class="ctile" data-go="tcal"><span class="ic">'+ic('trainings')+'</span><span class="t"><b>Training calendar 2026 – 27</b><small>November to October · induction first, then job-specific'+(tcalThisMonth().length?' · '+tcalThisMonth().length+' due this month':'')+'</small></span>'+ic('chev',18)+'</button><div class="morelist"><button type="button" class="mtile" data-go="zs"><span class="ic">'+ic('records')+'</span><b>2S zone score</b><small>Weekly · '+(zw==null?'not scored yet':zw+'% this week')+'</small></button>'+RECORD_ORDER.map(function(c){const n=list(c).length;return '<button type="button" class="mtile" data-go="recList" data-col="'+c+'"><span class="ic">'+ic(REC[c].icon)+'</span><b>'+h(REC[c].label)+'</b><small>'+h(REC[c].sub)+' · '+n+'</small></button>';}).join('')+'</div></div>';
   return x;
 }
 function txtOf(s){return String(s==null?'':s).replace(/<[^>]*>/g,'').trim();}
@@ -1462,7 +1780,7 @@ function vRecList(col){
   const R=REC[col];let rows=list(col).slice();
   rows.sort(col==='certs'?function(a,b){return String(a.expiry).localeCompare(String(b.expiry));}:byNewest);
   const mode=S.recMode||'details';
-  let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase())+'</button>');
+  let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+(col==='trainings'?'<button type="button" class="btn" data-go="tcal">Training calendar</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase())+'</button>');
   x+='<div class="content">'+banners();
   if(!rows.length)return x+'<div class="panel"><div class="empty">No '+h(R.label.toLowerCase())+' yet for '+h(unitName())+'. Use Add '+h(R.one.toLowerCase())+' to create the first one.</div></div></div>';
   x+='<div class="btnrow" style="justify-content:flex-end">'+modeSelect('recmode',mode)+'</div>';
@@ -1661,14 +1979,21 @@ function vRepSummary(){
     ['Incidents / near misses',function(u){return all('incidents').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).length;}],
     ['First aid cases',function(u){return all('firstaid').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).length;}],
     ['2S average score, week of '+fmtD(weekStart(r.to))+' (%)',function(u){const a=zsWeekAvg(u,weekStart(r.to));return a==null?0:a;}],
-    ['Certificates expiring in 30 days',function(u){return all('certs').filter(function(o){const d=daysTo(o.expiry);return o.unit===u&&d!=null&&d<=30;}).length;}]
+    ['Certificates expiring in 30 days',function(u){return all('certs').filter(function(o){const d=daysTo(o.expiry);return o.unit===u&&d!=null&&d<=30;}).length;}],
+    ['High-risk observations open',function(u){return all('obs').filter(function(o){return o.unit===u&&o.status!=='Closed'&&isHigh(o);}).length;}],
+    ['Repeat problems (90 days)',function(u){return repeatGroups([u],90).length;}],
+    ['Statutory items expired',function(u){return compSummary(u).exp;}],
+    ['Statutory renewals due in 30 days',function(u){return compSummary(u).due;}]
   ];
   lines.forEach(function(l){const vals=units.map(function(u){return l[1](u.id);});const isPct=l[0].indexOf('2S')===0;const tot=isPct?(function(){const nz=vals.filter(function(v){return v>0;});return nz.length?Math.round(nz.reduce(function(a,b){return a+b;},0)/nz.length):0;})():vals.reduce(function(a,b){return a+b;},0);body+='<tr><td>'+h(l[0])+'</td>'+vals.map(function(v){return '<td class="num">'+v+'</td>';}).join('')+'<td class="num"><b>'+tot+'</b></td></tr>';text+='\n'+l[0]+': '+tot;});
   body+='</tbody></table>';
   const depts={};all('obs').filter(function(o){return inRange(o.date,r.from,r.to);}).forEach(function(o){const k=unitName(o.unit)+' – '+o.dept;depts[k]=depts[k]||{n:0,c:0};depts[k].n++;if(o.status==='Closed')depts[k].c++;});
   const dk=Object.keys(depts).sort(function(a,b){return depts[b].n-depts[a].n;});
   body+='<div class="sec">Observations by department</div><table><thead><tr><th>Department</th><th>Raised</th><th>Closed</th><th>Closure %</th></tr></thead><tbody>'+(dk.length?dk.map(function(k){return '<tr><td>'+h(k)+'</td><td class="num">'+depts[k].n+'</td><td class="num">'+depts[k].c+'</td><td class="num">'+Math.round(100*depts[k].c/depts[k].n)+'%</td></tr>';}).join(''):'<tr><td colspan="4" style="color:var(--paper-muted)">No observations in this period.</td></tr>')+'</tbody></table>';
-  x=x.replace('</div></header>',pdfButtons('OHSE-summary-'+r.from+'-to-'+r.to,text)+'</div></header>');
+  const rg=repeatGroups(units.map(function(u){return u.id;}),90);
+  if(rg.length)body+='<div class="sec">Repeat problems – fix the root cause</div><table><thead><tr><th>Unit / department</th><th>Issue</th><th>Times in 90 days</th><th>Still open</th></tr></thead><tbody>'+rg.slice(0,10).map(function(g){return '<tr><td>'+h(unitName(g.o.unit)+' – '+g.o.dept)+'</td><td>'+h(g.o.label||g.o.note||g.o.kind)+'</td><td class="num">'+g.n+'</td><td class="num">'+g.open+'</td></tr>';}).join('')+'</tbody></table>';
+  const st0=S.settings;const dirs=(st0.dirMail?'<a class="btn" href="'+h(mailUrl(st0.dirMail,S.settings.company+' – weekly OHSE scorecard '+fmtD(r.from)+' to '+fmtD(r.to),text+'\n\nPDF attached.'))+'" data-act="scoresent">Email directors</a>':'')+(st0.dirMob?'<a class="btn wa" target="_blank" rel="noopener" href="'+h(waUrl(st0.dirMob,text))+'" data-act="scoresent">WhatsApp directors</a>':'');
+  x=x.replace('</div></header>',pdfButtons('OHSE-summary-'+r.from+'-to-'+r.to,text)+dirs+'</div></header>');
   x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet" id="sheet">'+sheetHead(S.settings.docPrefix+'/MIS/'+r.to.replace(/-/g,''),fmtD(r.from)+' – '+fmtD(r.to),units.length===1?units[0].id:null).replace('<div>'+h(unitName(null))+'</div>',units.length>1?'<div>All units</div>':'<div>'+h(units[0].name)+'</div>')+'<h3 class="title">OHSE MANAGEMENT SUMMARY</h3>'+body+signBlock('Prepared by – OHSE Manager','Reviewed by – Management')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
   return x;
 }
@@ -1772,6 +2097,7 @@ function vSettings(){
   x+='<div class="content" style="max-width:960px">'+banners();
   x+='<section class="panel"><header><h2>Report header</h2></header><div class="body"><div class="form"><div class="field"><label for="s_company">Company name</label><input class="in" id="s_company" value="'+h(st.company)+'"></div><div class="field"><label for="s_place">Place</label><input class="in" id="s_place" value="'+h(st.place)+'"></div><div class="field wide"><label for="s_address">Address (shown on reports)</label><input class="in" id="s_address" value="'+h(st.address||'')+'"></div><div class="field"><label for="s_prefix">Document number prefix</label><input class="in" id="s_prefix" value="'+h(st.docPrefix)+'"></div></div></div></section>';
   x+='<section class="panel"><header><h2>Units and departments</h2></header><div class="body"><div class="form">'+st.units.map(function(u,i){return '<div class="field wide"><label for="s_un'+i+'">Unit name</label><input class="in" id="s_un'+i+'" value="'+h(u.name)+'"><label for="s_ud'+i+'">Departments (one per line)</label><textarea class="in" id="s_ud'+i+'">'+h(u.depts.join('\n'))+'</textarea><label for="s_uz'+i+'">2S zones (one per line – leave empty to use the departments)</label><textarea class="in" id="s_uz'+i+'">'+h((u.zones||[]).join(String.fromCharCode(10)))+'</textarea></div>';}).join('')+'</div></div></section>';
+  x+=contactsPanel();
   x+='<section class="panel"><header><h2>Send list</h2></header><div class="body"><div class="form"><div class="field wide"><label for="s_sd">Daily report goes to</label><input class="in" id="s_sd" value="'+h(st.sendDaily)+'" placeholder="e.g. HODs WhatsApp group, plant head email"></div><div class="field wide"><label for="s_sw">Weekly / 15-day summary goes to</label><input class="in" id="s_sw" value="'+h(st.sendWeekly)+'" placeholder="e.g. management email addresses"></div></div></div></section>';
   x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="savesettings">Save settings</button></div>';
   x+='<section class="panel"><header><h2>People and roles</h2></header><div class="body" style="display:flex;flex-direction:column;gap:14px">';
@@ -1847,6 +2173,7 @@ document.addEventListener('click',async function(e){
   if(!t)return;
   if(await obsClick(t,e))return;
   if(await compClick(t))return;
+  if(await extClick(t))return;
   if(t.dataset.zsc){readZs();S.form.draft.scores[+t.dataset.zsc]=+t.dataset.v;const y=window.scrollY;render();requestAnimationFrame(function(){requestAnimationFrame(function(){window.scrollTo(0,y);});});return;}
   if(t.dataset.zsweek){const n=+t.dataset.zsweek;if(n){const w=addDays(S.zsWeek||weekStart(),n);S.zsWeek=w>weekStart()?weekStart():w;render();}return;}
   if(t.dataset.act==='pickcam')return pickFile({capture:true},function(fs){onCapFile(fs[0]);});
@@ -1857,7 +2184,7 @@ document.addEventListener('click',async function(e){
   if(t.dataset.act==='zssave')return saveZs();
   if(t.dataset.act==='zscancel'){S.form=null;go('zs');return;}
   if(t.dataset.unit){S.unit=t.dataset.unit;try{localStorage.setItem('sbc_unit',S.unit);}catch(err){}if(S.form&&S.form.kind==='capture'){readCapture();S.form.draft.dept='';}render();return;}
-  if(t.dataset.capdept){readCapture();S.form.draft.dept=t.dataset.capdept;render();return;}
+  if(t.dataset.capdept){readCapture();S.form.draft.dept=t.dataset.capdept;autoFillOwner();render();return;}
   if(t.dataset.capkind){readCapture();S.form.draft.kind=t.dataset.capkind;render();return;}
   if(t.dataset.range){const n=+t.dataset.range;S.range={from:addDays(today(),-(n-1)),to:today()};render();return;}
   if(t.dataset.walk){toggleWalk(t.dataset.walk);return;}
@@ -1942,6 +2269,7 @@ async function toggleWalk(dept){
 /* ---------- boot ---------- */
 async function boot(){
   try{const q=new URLSearchParams(location.search).get('o');if(q){localStorage.setItem('sbc_open',q);history.replaceState(null,'',location.pathname+location.hash);}}catch(e){}
+  try{if(localStorage.getItem('sbc_day')!==today()){localStorage.setItem('sbc_day',today());localStorage.removeItem('sbc_view');}}catch(e){}
   try{const sv=JSON.parse(localStorage.getItem('sbc_view')||'null');if(sv&&sv.v&&['recForm','capture','compItem'].indexOf(sv.v)<0){S.view=sv.v;S.arg=sv.arg;}}catch(e){}
   if(S.view==='recView'&&!(S.arg&&S.arg.col&&REC[S.arg.col]))S.view='home';
   if((S.view==='recList'||S.view==='repRegister')&&!(S.arg&&REC[S.arg.col]))S.view='home';
