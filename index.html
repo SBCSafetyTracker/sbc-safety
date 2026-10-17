@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SBC Safety</title>
+<meta name="theme-color" content="#4f5a12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{color-scheme:light;box-sizing:border-box}body{margin:0;padding:0;background:#f6f5ec}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="config.js"></script>
+<script src="store.js"></script>
+</head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: fixed side menu on laptop, top bar + bottom tabs on phone; reports render as an A4 paper sheet identical to the PDF. */
+:root{
+  --ground:#f6f5ec; --surface:#ffffff; --tint:#eef0d6; --line:#e3e0c8; --line-strong:#c9c39a;
+  --ink:#1d2014; --muted:#5b5f4c; --brand:#4f5a12; --brand-ink:#ffffff; --brand-soft:#e8e2b8; --gold:#c9a227; --gold-ink:#1d2014;
+  --ok-bg:#e6efd2; --ok:#3b4a0c; --warn-bg:#fff4e0; --warn:#7a4a06; --bad-bg:#fde7e4; --bad:#8f1d12; --info-bg:#e3eaf6; --info:#1d3b6e;
+  --paper:#ffffff; --paper-ink:#1d2014; --paper-line:#c9c39a; --paper-tint:#eef0d6; --paper-brand:#3c450c; --paper-muted:#5b5f4c; --ph:#e9e7d6;
+  --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ground:#14160d; --surface:#1e2115; --tint:#2a3013; --line:#33372a; --line-strong:#4a4f37;
+  --ink:#ecebdc; --muted:#a9ab95; --brand:#5d6a18; --brand-ink:#ffffff; --brand-soft:#e3dcae; --gold:#d4b13c; --gold-ink:#1d2014;
+  --ok-bg:#25331a; --ok:#c4dc8f; --warn-bg:#3a2c10; --warn:#f2c46b; --bad-bg:#3f1c18; --bad:#f4a397; --info-bg:#1c2a40; --info:#a9c4ef; --ph:#2b2e22;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ground:#14160d; --surface:#1e2115; --tint:#2a3013; --line:#33372a; --line-strong:#4a4f37;
+  --ink:#ecebdc; --muted:#a9ab95; --brand:#5d6a18; --brand-ink:#ffffff; --brand-soft:#e3dcae; --gold:#d4b13c; --gold-ink:#1d2014;
+  --ok-bg:#25331a; --ok:#c4dc8f; --warn-bg:#3a2c10; --warn:#f2c46b; --bad-bg:#3f1c18; --bad:#f4a397; --info-bg:#1c2a40; --info:#a9c4ef; --ph:#2b2e22;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:var(--brand)}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+.shell{display:flex;min-height:100%}
+.side{width:248px;flex:none;background:var(--brand);color:var(--brand-ink);display:flex;flex-direction:column;gap:4px;padding:22px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.brandblock{padding:4px 10px 20px;border-bottom:1px solid rgba(255,255,255,.18);margin-bottom:10px}
+.brandblock b{display:block;font-size:19px;font-weight:700;letter-spacing:.2px}
+.brandblock span{font-size:13px;color:var(--brand-soft)}
+.nav{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:9px;color:var(--brand-ink);text-decoration:none;font-size:15px;background:none;border:0;width:100%;text-align:left;cursor:pointer;min-height:44px}
+.nav:hover{background:rgba(255,255,255,.1)}
+.nav[aria-current="page"]{background:var(--gold);color:var(--gold-ink);font-weight:600}
+.nav svg{flex:none}
+.side .who{margin-top:auto;border-top:1px solid rgba(255,255,255,.18);padding:14px 10px 0;font-size:13px}
+.side .who span{color:var(--brand-soft);display:block}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:none}
+.pagehead{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;justify-content:space-between;padding-block:18px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));background:var(--surface);border-bottom:1px solid var(--line)}
+.pagehead h1{font-size:23px;font-weight:600}
+.pagehead p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.content{padding-block:22px 40px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px;max-width:1240px;width:100%}
+.tabbar{display:none}
+
+@media (max-width:820px){
+  .side{display:none}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--brand)}
+  .topbar{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--brand);color:var(--brand-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+  .topbar b{font-size:17px}
+  .topbar small{display:block;color:var(--brand-soft);font-size:12px}
+  .pagehead{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px}
+  .pagehead h1{font-size:20px}
+  .content{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 120px;gap:16px}
+  .tabbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding:4px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+  .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;font-size:12px;color:var(--muted);background:none;border:0;cursor:pointer}
+  .tab[aria-current="page"]{color:var(--brand);font-weight:600}
+  .tab.cam span.c{width:62px;height:62px;border-radius:31px;background:var(--brand);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;margin-top:-30px;border:4px solid var(--surface);box-shadow:0 2px 6px rgba(30,30,10,.25)}
+  .tab.cam{color:var(--brand);font-weight:600}
+}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer;text-decoration:none;font-size:15px;white-space:nowrap}
+.btn:hover{border-color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);font-weight:600}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.small{min-height:36px;padding:0 12px;font-size:14px}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn[disabled]{opacity:.55;cursor:default}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;background:var(--tint);border-radius:10px;padding:3px;gap:3px}
+.seg button{border:0;background:none;border-radius:8px;min-height:38px;padding:0 14px;cursor:pointer;font-size:14px;color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);font-weight:600}
+.topbar .seg{background:rgba(0,0,0,.2)}
+.topbar .seg button{color:var(--brand-ink);min-height:34px;padding:0 10px;font-size:13px}
+.topbar .seg button[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;text-align:left;cursor:pointer;color:var(--ink)}
+.tile .n{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:6px}
+.tile .l{font-size:13px;color:var(--muted)}
+.tile.warn{background:var(--warn-bg);border-color:transparent}.tile.warn .l,.tile.warn .n{color:var(--warn)}
+.tile.bad{background:var(--bad-bg);border-color:transparent}.tile.bad .l,.tile.bad .n{color:var(--bad)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;min-width:0}
+.panel>header{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;padding:12px 18px;background:var(--tint)}
+.panel>header h2{font-size:16px;font-weight:600}
+.panel .body{padding:16px 18px}
+.empty{padding:22px 18px;color:var(--muted);font-size:14px}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;gap:12px;align-items:center;padding:12px 18px;border-top:1px solid var(--line);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left;cursor:pointer;color:var(--ink)}
+.rows .row:first-child{border-top:0}
+.row:hover{background:var(--tint)}
+.row .t{flex:1;min-width:0}
+.row .t b{display:block;font-weight:600;overflow-wrap:anywhere}
+.row .t small{color:var(--muted);font-size:13px}
+.thumb{width:64px;height:64px;border-radius:9px;object-fit:cover;background:var(--ph);flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.info{background:var(--info-bg);color:var(--info)}.pill.plain{background:var(--tint);color:var(--ink)}
+.cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;align-items:start}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.ocard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;cursor:pointer;text-align:left;padding:0;color:var(--ink);display:flex;flex-direction:column}
+.ocard .ph{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;background:var(--line)}
+.ocard .ph img,.ocard .ph div{width:100%;height:140px;object-fit:cover;background:var(--ph);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px}
+.ocard .ph.one{grid-template-columns:1fr}
+.ocard .meta{padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.ocard .meta .top{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:42px;padding:0 15px;border-radius:21px;border:1px solid var(--line-strong);background:var(--surface);cursor:pointer;font-size:14px;color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+.walk .chip[aria-pressed="true"]::before{content:"✓ "}
+
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field.wide{grid-column:1/-1}
+.field label,.field .lab{font-size:14px;font-weight:500}
+.field small{color:var(--muted);font-size:12px}
+.in{min-height:46px;border:1px solid var(--line-strong);border-radius:9px;padding:0 12px;background:var(--surface);width:100%}
+textarea.in{padding:10px 12px;min-height:96px;resize:vertical}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px 14px}
+.checks label{display:flex;gap:10px;align-items:flex-start;min-height:36px;font-weight:400;font-size:14px}
+.checks input{width:20px;height:20px;margin-top:1px;accent-color:var(--brand)}
+.photos{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.photos .p{position:relative}
+.photos img{width:92px;height:92px;object-fit:cover;border-radius:9px;background:var(--ph)}
+.photos .x{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:14px;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.bigcam{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:180px;border:2px dashed var(--line-strong);border-radius:16px;background:var(--surface);color:var(--brand);font-weight:600;position:relative;overflow:hidden;cursor:pointer}
+.bigcam input{position:absolute;inset:0;opacity:0;cursor:pointer}
+button.bigcam{width:100%;font:inherit;font-weight:600}
+button.bigcam svg,button.bigcam span,button.bigcam small{position:relative;z-index:1}
+button.bigcam img+svg,button.bigcam img~span,button.bigcam img~small{display:none}
+.bigcam img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bigcam small{color:var(--muted);font-weight:400}
+.sticky-save{position:sticky;bottom:0;background:var(--ground);padding-block:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:820px){.form{grid-template-columns:1fr}.sticky-save{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
+
+.banner{border-radius:10px;padding:10px 14px;font-size:14px;background:var(--warn-bg);color:var(--warn)}
+.banner.info{background:var(--info-bg);color:var(--info)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--ground);padding:12px 18px;border-radius:10px;z-index:50;font-size:14px;max-width:min(520px,calc(100% - 32px))}
+@media (max-width:820px){.toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}}
+.tablewrap{overflow-x:auto}
+table.list{width:100%;border-collapse:collapse;font-size:14px}
+table.list th{text-align:left;font-weight:500;color:var(--muted);font-size:13px;padding:10px 14px}
+table.list td{padding:11px 14px;border-top:1px solid var(--line);vertical-align:middle}
+table.list tr.click{cursor:pointer}table.list tr.click:hover td{background:var(--tint)}
+.num{font-variant-numeric:tabular-nums}
+
+/* Paper sheet: identical on screen and in the PDF */
+.sheetwrap{display:block;overflow-x:auto}
+@media (max-width:820px){.desk-only{display:none}}
+.sheet{width:794px;max-width:none;margin:0 auto;background:var(--paper);color:var(--paper-ink);box-shadow:0 1px 4px rgba(30,30,10,.2);padding:38px 42px;display:flex;flex-direction:column;gap:16px;font-size:13px;line-height:1.45}
+.sheet.wide{width:1060px}
+.sheet .sh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px;padding-bottom:10px;border-bottom:3px solid var(--paper-brand)}
+.sheet .sh b{display:block;font-size:22px;color:var(--paper-brand);font-weight:700}
+.sheet .sh span{font-size:12px;color:var(--paper-muted)}
+.sheet .sh .doc{text-align:right;font-size:11.5px;color:var(--paper-muted);line-height:1.6;font-family:var(--mono)}
+.sheet h3.title{text-align:center;font-size:18px;letter-spacing:.6px;font-weight:700}
+.sheet .kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--paper-line)}
+.sheet .kv div{padding:8px 10px;border-bottom:1px solid var(--paper-line);border-right:1px solid var(--paper-line);overflow-wrap:anywhere}
+.sheet .kv div:nth-child(2n){border-right:0}
+.sheet .kv span{color:var(--paper-muted)}
+.sheet .sec{font-size:13.5px;font-weight:700;color:var(--paper-brand);background:var(--paper-tint);padding:5px 10px}
+.sheet ol,.sheet ul{margin:0;padding-left:24px}
+.sheet table{width:100%;border-collapse:collapse;font-size:12.5px}
+.sheet th{background:var(--paper-tint);text-align:left}
+.sheet th,.sheet td{border:1px solid var(--paper-line);padding:6px 8px;vertical-align:top;overflow-wrap:anywhere}
+.sheet .pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sheet .pgrid img{width:100%;height:150px;object-fit:cover;background:var(--ph);display:block}
+.sheet td img{width:118px;height:84px;object-fit:cover;display:block;background:var(--ph)}
+.sheet .noph{width:118px;height:84px;border:1px dashed var(--paper-line);display:flex;align-items:center;justify-content:center;color:var(--paper-muted);font-size:11px}
+.sheet .sign{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px;padding-top:34px}
+.sheet .sign div{border-top:1px solid var(--paper-ink);padding-top:6px}
+.sheet .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--paper-line);text-align:center}
+.sheet .stats div{padding:8px;border-right:1px solid var(--paper-line)}.sheet .stats div:last-child{border-right:0}
+.sheet .stats b{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.sheet .stats span{font-size:11px;color:var(--paper-muted)}
+.sheet .foot{font-size:10.5px;color:var(--paper-muted);text-align:right}
+.morelist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.mtile{display:flex;flex-direction:column;align-items:flex-start;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;cursor:pointer;text-align:left;color:var(--ink);min-height:96px}
+.mtile .ic{width:38px;height:38px;border-radius:10px;background:var(--tint);color:var(--brand);display:flex;align-items:center;justify-content:center}
+.mtile b{font-size:14px}
+.mtile small{color:var(--muted);font-size:12px}
+.hidden-sr{position:absolute;left:-9999px}
+</style>
+
+<div id="app"></div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- constants ---------- */
+const ICON = {
+  home:'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+  obs:'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  permits:'M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6M9 16h3',
+  reports:'M6 2h9l5 5v15H6zM14 2v6h6M9 13h8M9 17h8',
+  records:'M3 7h18v13H3zM3 7l2-4h14l2 4M9 12h6',
+  settings:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  cam:'M4 8h3l2-3h6l2 3h3v11H4zM12 9.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z',
+  more:'M5 12h.01M12 12h.01M19 12h.01',
+  trainings:'M3 7l9-4 9 4-9 4zM7 9v5c0 1.5 2.5 3 5 3s5-1.5 5-3V9',
+  drills:'M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z',
+  certs:'M6 3h12v14l-6-3-6 3zM9 8h6',
+  ext:'M9 8h6v13H9zM12 8V4h4M9 4h3',
+  ppe:'M5 10a7 7 0 0 1 14 0v3H5zM3 13h18v3H3z',
+  visitors:'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M18 15c2 1 3 3 3 5',
+  incidents:'M12 3l10 18H2zM12 10v5M12 18v.5',
+  firstaid:'M4 7h16v13H4zM9 7V4h6v3M12 11v6M9 14h6',
+  back:'M15 6l-6 6 6 6', chev:'M9 6l6 6-6 6', plus:'M12 5v14M5 12h14', down:'M12 4v12M6 10l6 6 6-6M5 20h14'
+};
+function ic(name,size){size=size||20;return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+ICON[name]+'"/></svg>';}
+
+const DEFAULT_SETTINGS = {
+  company:'Sri Balaji Castings', place:'Ponneri, Chennai', docPrefix:'SBC/OHSE',
+  units:[
+    {id:'u4', name:'Unit 4, 5 & 13', depts:['PDC','GDC','LPDC','Heat Treatment','Final Export – International','Final Export – Domestic','Maintenance','Stores']},
+    {id:'u8', name:'Unit 8', depts:['PDC','GDC','LPDC','Final','Maintenance','Stores']}
+  ],
+  roles:{}, sendDaily:'', sendWeekly:''
+};
+const OBS_KINDS = ['Unsafe condition','Unsafe act','Housekeeping','Near miss'];
+const CHECKS = {
+  'Hot work':['Area cleared of flammables','Fire extinguisher at site','Fire watcher assigned','Welding cable and earthing checked','Gas cylinders secured, flashback arrestor fitted','Face shield, gloves and apron worn'],
+  'LOTO / Isolation':['All energy sources identified','Isolated and locked','Tag fixed with name and date','Zero energy verified (try-out)','Key kept with permit holder'],
+  'Electrical':['Supply isolated and locked','Tested dead with tester','Earthing done','Insulated tools and gloves used','Authorised electrician only'],
+  'Working at height':['Full body harness with double lanyard','Anchor point checked','Ladder or scaffold inspected and tagged','Area below barricaded','Fit-to-work checked']
+};
+const REC = {
+  permits:{label:'Permits', one:'Permit', code:'WP', report:'WORK PERMIT', icon:'permits', sub:'Hot work · LOTO · Electrical · Height',
+    fields:[
+      {k:'kind',t:'select',l:'Permit type',o:Object.keys(CHECKS),req:1},
+      {k:'contractor',t:'text',l:'Contractor / agency',req:1},
+      {k:'workers',t:'number',l:'No. of workers'},
+      {k:'dept',t:'dept',l:'Department'},
+      {k:'location',t:'text',l:'Exact location'},
+      {k:'from',t:'datetime-local',l:'Valid from'},
+      {k:'to',t:'datetime-local',l:'Valid to'},
+      {k:'job',t:'textarea',l:'Job description',req:1,wide:1},
+      {k:'checks',t:'checks',l:'Precautions checked',wide:1,opts:function(d){return CHECKS[d.kind]||CHECKS['Hot work'];}},
+      {k:'ppe',t:'text',l:'PPE required',wide:1},
+      {k:'status',t:'select',l:'Status',o:['Requested','Approved','Closed','Cancelled']}
+    ],
+    cols:[['no','Permit no'],['kind','Type'],['contractor','Contractor'],['dept','Department'],['to','Valid to',function(r){return fmtDT(r.to);}],['status','Status',function(r){return pillFor(r.status);}]]},
+  trainings:{label:'Training', one:'Training', code:'TR', report:'SAFETY TRAINING REPORT', icon:'trainings', sub:'Reports, attendance, photos', dated:1,
+    fields:[
+      {k:'date',t:'date',l:'Date',req:1},
+      {k:'kind',t:'select',l:'Type',o:['On-the-floor training','Induction','Job-specific training','Classroom training','External trainer']},
+      {k:'title',t:'text',l:'Training topic',req:1,wide:1},
+      {k:'depts',t:'text',l:'Departments covered'},
+      {k:'trainer',t:'text',l:'Trainer'},
+      {k:'points',t:'lines',l:'Points covered',hint:'One point per line',wide:1},
+      {k:'notes',t:'textarea',l:'Summary / remarks',wide:1},
+      {k:'photos',t:'photos',l:'Photos',wide:1},
+      {k:'people',t:'people',l:'Attendance',hint:'One person per line: Name, Emp ID, Department',wide:1},
+      {k:'ref',t:'text',l:'Source files / email',wide:1}
+    ],
+    cols:[['date','Date',function(r){return fmtD(r.date);}],['title','Topic'],['depts','Departments'],['people','Attendees',function(r){return (r.people||[]).length;}]]},
+  drills:{label:'Mock drills', one:'Mock drill', code:'MD', report:'MOCK DRILL REPORT', icon:'drills', sub:'Fire, evacuation, spill', dated:1,
+    fields:[
+      {k:'date',t:'date',l:'Date',req:1},
+      {k:'kind',t:'select',l:'Drill type',o:['Fire','Evacuation','Molten metal / chemical spill','First aid / rescue','Electrical']},
+      {k:'location',t:'text',l:'Location / department'},
+      {k:'alarmAt',t:'time',l:'Alarm raised at'},
+      {k:'clearAt',t:'time',l:'All clear at'},
+      {k:'headcount',t:'number',l:'People evacuated / counted'},
+      {k:'responseMin',t:'number',l:'Response time (minutes)'},
+      {k:'scenario',t:'textarea',l:'Scenario',wide:1},
+      {k:'findings',t:'lines',l:'What went well / gaps found',hint:'One per line',wide:1},
+      {k:'actions',t:'lines',l:'Actions to take',hint:'One per line',wide:1},
+      {k:'notes',t:'textarea',l:'Summary / remarks',wide:1},
+      {k:'photos',t:'photos',l:'Photos',wide:1},
+      {k:'ref',t:'text',l:'Source files / email',wide:1}
+    ],
+    cols:[['date','Date',function(r){return fmtD(r.date);}],['kind','Type'],['scenario','Scenario'],['photos','Photos',function(r){return (r.photos||[]).length;}]]},
+  certs:{label:'Certificates', one:'Certificate', code:'CR', report:'LIFTING EQUIPMENT & TOOLS – CERTIFICATION REGISTER', icon:'certs', sub:'Lifting equipment & tools', register:1,
+    fields:[
+      {k:'equipment',t:'text',l:'Equipment',req:1},
+      {k:'idno',t:'text',l:'ID / Sl. no'},
+      {k:'dept',t:'dept',l:'Department'},
+      {k:'swl',t:'text',l:'Safe working load'},
+      {k:'agency',t:'text',l:'Certified by'},
+      {k:'lastTest',t:'date',l:'Last tested on'},
+      {k:'expiry',t:'date',l:'Valid till',req:1},
+      {k:'photos',t:'photos',l:'Certificate copy',wide:1}
+    ],
+    cols:[['equipment','Equipment'],['idno','ID'],['dept','Department'],['expiry','Valid till',function(r){return fmtD(r.expiry);}],['st','Status',function(r){return duePill(r.expiry);}]]},
+  ext:{label:'Fire extinguishers', one:'Fire extinguisher', code:'FE', report:'MONTHLY FIRE EXTINGUISHER INSPECTION', icon:'ext', sub:'Monthly inspection', register:1,
+    fields:[
+      {k:'tag',t:'text',l:'Tag / Sl. no',req:1},
+      {k:'location',t:'text',l:'Location',req:1},
+      {k:'type',t:'select',l:'Type',o:['ABC (DCP)','CO2','Foam','Water','Clean agent']},
+      {k:'capacity',t:'text',l:'Capacity (kg)'},
+      {k:'checkedOn',t:'date',l:'Inspected on'},
+      {k:'condition',t:'select',l:'Condition',o:['OK','Needs attention']},
+      {k:'refillDue',t:'date',l:'Refill due'},
+      {k:'hptDue',t:'date',l:'Hydro test due'},
+      {k:'remarks',t:'text',l:'Remarks',wide:1}
+    ],
+    cols:[['tag','Tag'],['location','Location'],['type','Type'],['checkedOn','Inspected',function(r){return fmtD(r.checkedOn);}],['condition','Condition',function(r){return r.condition==='Needs attention'?'<span class="pill bad">Needs attention</span>':(r.condition?'<span class="pill ok">OK</span>':'');}],['refillDue','Refill',function(r){return duePill(r.refillDue);}]]},
+  ppe:{label:'PPE stock', one:'PPE item', code:'PP', report:'PPE STOCK RECORD', icon:'ppe', sub:'Simple count and issue', register:1,
+    fields:[
+      {k:'item',t:'text',l:'Item',req:1},
+      {k:'size',t:'text',l:'Size / type'},
+      {k:'stock',t:'number',l:'In stock'},
+      {k:'minLevel',t:'number',l:'Re-order level'},
+      {k:'issued',t:'number',l:'Issued this month'},
+      {k:'remarks',t:'text',l:'Remarks'}
+    ],
+    cols:[['item','Item'],['size','Size'],['stock','In stock'],['minLevel','Re-order at'],['st','Status',function(r){return lowStock(r)?'<span class="pill bad">Low</span>':'<span class="pill ok">OK</span>';}]]},
+  visitors:{label:'Visitors & contractors', one:'Visitor / contractor', code:'IR', report:'OHSE INDUCTION RECORD SHEET', icon:'visitors', sub:'Induction and medical fitness', register:1, dated:1,
+    fields:[
+      {k:'date',t:'date',l:'Date',req:1},
+      {k:'kind',t:'select',l:'Type',o:['Visitor','Contractor worker']},
+      {k:'name',t:'text',l:'Name',req:1},
+      {k:'company',t:'text',l:'Company'},
+      {k:'purpose',t:'text',l:'Purpose / job'},
+      {k:'induction',t:'select',l:'Safety induction',o:['Done','Not done']},
+      {k:'medical',t:'select',l:'Medical fitness',o:['Fit','Not fit','Not required']},
+      {k:'medicalTill',t:'date',l:'Fitness valid till'}
+    ],
+    cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['company','Company'],['kind','Type'],['induction','Induction',function(r){return r.induction==='Done'?'<span class="pill ok">Done</span>':'<span class="pill warn">'+h(r.induction||'Not done')+'</span>';}]]},
+  incidents:{label:'Incidents', one:'Incident', code:'IN', report:'INCIDENT INVESTIGATION REPORT', icon:'incidents', sub:'Investigation and actions', dated:1,
+    fields:[
+      {k:'date',t:'date',l:'Date',req:1},
+      {k:'time',t:'time',l:'Time'},
+      {k:'dept',t:'dept',l:'Department'},
+      {k:'kind',t:'select',l:'Type',o:['Near miss','First aid case','Lost time injury','Property damage','Fire','Dangerous occurrence']},
+      {k:'person',t:'text',l:'Person involved'},
+      {k:'status',t:'select',l:'Status',o:['Open','Closed']},
+      {k:'description',t:'textarea',l:'What happened',req:1,wide:1},
+      {k:'immediate',t:'textarea',l:'Immediate action taken',wide:1},
+      {k:'rootCause',t:'textarea',l:'Root cause',wide:1},
+      {k:'actions',t:'lines',l:'Corrective actions',hint:'One per line',wide:1},
+      {k:'photos',t:'photos',l:'Photos',wide:1}
+    ],
+    cols:[['date','Date',function(r){return fmtD(r.date);}],['kind','Type'],['dept','Department'],['status','Status',function(r){return pillFor(r.status);}]]},
+  firstaid:{label:'First aid', one:'First aid case', code:'FA', report:'FIRST AID RECORD', icon:'firstaid', sub:'Cases treated', register:1, dated:1,
+    fields:[
+      {k:'date',t:'date',l:'Date',req:1},
+      {k:'time',t:'time',l:'Time'},
+      {k:'name',t:'text',l:'Name',req:1},
+      {k:'emp',t:'text',l:'Emp ID'},
+      {k:'dept',t:'dept',l:'Department'},
+      {k:'injury',t:'text',l:'Injury / complaint'},
+      {k:'treatment',t:'text',l:'Treatment given'},
+      {k:'givenBy',t:'text',l:'Given by'},
+      {k:'referred',t:'select',l:'Referred to hospital',o:['No','Yes']}
+    ],
+    cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['dept','Department'],['injury','Injury'],['referred','Hospital']]}
+};
+const RECORD_ORDER = ['trainings','drills','certs','ext','ppe','visitors','incidents','firstaid'];
+const COLS = ['obs','walks','zs'].concat(Object.keys(REC));
+const ZS_CRIT = [
+  ['Sort','No unwanted items, tools or material in the zone'],
+  ['Sort','Scrap and rejects kept only in the marked bin'],
+  ['Sort','Aisles and walkways clear'],
+  ['Sort','No excess stock beyond the shift\'s need'],
+  ['Sort','Red-tag items moved to the red-tag area'],
+  ['Set in order','Every item has a marked place'],
+  ['Set in order','Tools on shadow board / stand, returned after use'],
+  ['Set in order','Racks, bins and material labelled'],
+  ['Set in order','Floor markings and zone lines clearly visible'],
+  ['Set in order','Extinguishers, panels and exits not blocked']
+];
+const ZS_MAX = ZS_CRIT.length*5;
+function weekStart(d){const x=new Date((d||today())+'T00:00:00');x.setDate(x.getDate()-((x.getDay()+6)%7));return iso(x);}
+function zonesOf(uid){const u=unitObj(uid);return (u.zones&&u.zones.length)?u.zones:u.depts;}
+function zsDoc(uid,wk){return (S.data.zs||[]).find(function(r){return r.id===uid+'_'+wk;});}
+function zsCalc(e){if(!e||!e.scores)return null;const sc=e.scores.map(function(v){return Number(v)||0;});const so=sc.slice(0,5).reduce(function(a,b){return a+b;},0),se=sc.slice(5).reduce(function(a,b){return a+b;},0);return {sort:so,set:se,total:so+se,pct:Math.round(100*(so+se)/ZS_MAX)};}
+function zsWeekAvg(uid,wk){const d=zsDoc(uid,wk);if(!d||!d.zones)return null;const v=Object.keys(d.zones).map(function(z){return zsCalc(d.zones[z]);}).filter(Boolean);if(!v.length)return null;return Math.round(v.reduce(function(a,b){return a+b.pct;},0)/v.length);}
+function pctPill(p){if(p==null)return '<span class="pill plain">Not scored</span>';return '<span class="pill '+(p>=80?'ok':p>=60?'warn':'bad')+'">'+p+'%</span>';}
+
+/* ---------- state ---------- */
+const S = {
+  db:null, assets:null, user:null, dl:null, sample:null, uid:null, isOwner:false, canEdit:false, ready:false, demo:false,
+  settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),
+  data:{}, view:'home', arg:null, form:null, unit:'u4', toast:'', toastT:0, names:{}, filter:'Open', deptFilter:'', repDate:null, range:null, people:[],
+  queue:[], blobs:{}
+};
+COLS.forEach(function(c){S.data[c]=[];});
+try{ const u=localStorage.getItem('sbc_unit'); if(u) S.unit=u; }catch(e){}
+try{ const q=JSON.parse(localStorage.getItem('sbc_queue')||'[]'); if(Array.isArray(q)) S.queue=q; }catch(e){}
+
+/* ---------- helpers ---------- */
+function h(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function pad(n){return String(n).padStart(2,'0');}
+function iso(d){d=d||new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function today(){return iso(new Date());}
+function addDays(s,n){const d=new Date(s+'T00:00:00');d.setDate(d.getDate()+n);return iso(d);}
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtD(s){if(!s)return '';const p=String(s).slice(0,10).split('-');if(p.length<3)return h(s);return (+p[2])+' '+MON[+p[1]-1]+' '+p[0];}
+function fmtDT(s){if(!s)return '';const d=String(s);return fmtD(d.slice(0,10))+(d.length>10?', '+d.slice(11,16):'');}
+function daysTo(s){if(!s)return null;return Math.round((new Date(String(s).slice(0,10)+'T00:00:00')-new Date(today()+'T00:00:00'))/864e5);}
+function duePill(s){const d=daysTo(s);if(d==null)return '';if(d<0)return '<span class="pill bad">Expired</span>';if(d<=20)return '<span class="pill bad">'+d+' days left</span>';if(d<=30)return '<span class="pill warn">'+d+' days left</span>';return '<span class="pill ok">Valid</span>';}
+function pillFor(s){const m={Open:'warn',Overdue:'bad',Closed:'ok',Approved:'info',Requested:'warn',Cancelled:'plain'};return s?'<span class="pill '+(m[s]||'plain')+'">'+h(s)+'</span>':'';}
+function lowStock(r){return r.minLevel!=null&&r.minLevel!==''&&r.stock!=null&&r.stock!==''&&Number(r.stock)<=Number(r.minLevel);}
+function unitObj(id){return S.settings.units.find(function(u){return u.id===(id||S.unit);})||S.settings.units[0];}
+function unitName(id){const u=unitObj(id);return u?u.name:'';}
+function phSrc(id){return 'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="3"><!--'+id+'--><rect width="4" height="3" fill="#e9e7d6"/></svg>');}
+const photoWait={};
+function loadPhoto(id){
+  if(photoWait[id]||!window.SBCStore||!S.db)return;
+  photoWait[id]=window.SBCStore.photo(id).then(function(u){S.blobs[id]=u;const ph=phSrc(id);document.querySelectorAll('img').forEach(function(im){if(im.getAttribute('src')===ph)im.src=u;});}).catch(function(){setTimeout(function(){delete photoWait[id];},60000);});
+}
+function photoUrl(id){if(!id)return '';if(S.blobs[id])return h(S.blobs[id]);loadPhoto(id);return h(phSrc(id));}
+function fitSheets(){document.querySelectorAll('.sheet').forEach(function(el){const w=el.parentElement.clientWidth;const base=el.classList.contains('wide')?1060:794;const z=Math.min(1,w/base);el.style.zoom=z<0.999?String(z):'';});}
+window.addEventListener('resize',function(){fitSheets();});
+function inUnit(r){return !r.unit||r.unit===S.unit;}
+function rid(){return 'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function toast(msg){S.toast=msg;clearTimeout(S.toastT);S.toastT=setTimeout(function(){S.toast='';paintToast();},3800);paintToast();}
+function paintToast(){let t=document.getElementById('toast');if(!S.toast){if(t)t.remove();return;}if(!t){t=document.createElement('div');t.id='toast';t.className='toast';t.setAttribute('role','status');document.body.appendChild(t);}t.textContent=S.toast;}
+function saveQueue(){try{localStorage.setItem('sbc_queue',JSON.stringify(S.queue));}catch(e){toast('Phone storage is full. Connect to the internet to send saved observations.');}}
+
+/* ---------- roles ---------- */
+function myRole(){
+  if(!S.user||S.demo||S.isOwner) return {role:'admin'};
+  const r=S.settings.roles&&S.uid?S.settings.roles[S.uid]:null;
+  return r||{role:'none'};
+}
+const ROLE_LABEL={admin:'Admin',officer:'Safety officer',hod:'HOD',management:'Management',none:'No access yet'};
+function can(what){
+  const r=myRole().role;
+  if(r==='admin')return true;
+  if(r==='officer')return what!=='settings';
+  if(r==='hod')return ['home','obs','capture','closeObs','reports','view'].indexOf(what)>=0;
+  if(r==='management')return ['home','reports','view'].indexOf(what)>=0;
+  return false;
+}
+function hodDepts(){const r=myRole();return r.role==='hod'?(r.depts||[]):null;}
+function allowedUnits(){const r=myRole();if(r.role==='admin'||r.role==='management'||!r.units||!r.units.length)return S.settings.units;return S.settings.units.filter(function(u){return r.units.indexOf(u.id)>=0;});}
+
+/* ---------- data ---------- */
+function list(col){
+  let rows=(S.data[col]||[]).filter(inUnit);
+  if(col==='obs'){const d=hodDepts();if(d)rows=rows.filter(function(r){return d.indexOf(r.dept)>=0;});}
+  return rows;
+}
+function obsStatus(o){if(o.status==='Closed')return 'Closed';if(o.target&&o.target<today())return 'Overdue';return 'Open';}
+function byNewest(a,b){return String(b.createdAt||b.date||'').localeCompare(String(a.createdAt||a.date||''));}
+
+async function writeDoc(col,id,body){
+  body=JSON.parse(JSON.stringify(body));
+  if(S.demo||!S.db){
+    const arr=S.data[col];const i=arr.findIndex(function(r){return r.id===id;});
+    const row=Object.assign({id:id},body); if(i>=0)arr[i]=row; else arr.push(row); render(); return;
+  }
+  await S.db.collection(col).doc(id).set(body);
+}
+async function removeDoc(col,id){
+  if(S.demo||!S.db){S.data[col]=S.data[col].filter(function(r){return r.id!==id;});render();return;}
+  await S.db.collection(col).doc(id).delete();
+}
+function stripId(r){const o=Object.assign({},r);delete o.id;return o;}
+
+/* ---------- photos ---------- */
+function compress(file){
+  return new Promise(function(res,rej){
+    const img=new Image();const url=URL.createObjectURL(file);
+    img.onload=function(){
+      const max=1600;let w=img.naturalWidth,hh=img.naturalHeight;const sc=Math.min(1,max/Math.max(w,hh));w=Math.round(w*sc);hh=Math.round(hh*sc);
+      const c=document.createElement('canvas');c.width=w;c.height=hh;c.getContext('2d').drawImage(img,0,0,w,hh);URL.revokeObjectURL(url);
+      c.toBlob(function(b){b?res(b):rej(new Error('compress'));},'image/jpeg',0.8);
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('That file is not a photo the app can read.'));};
+    img.src=url;
+  });
+}
+function blobToDataURL(b){return new Promise(function(res){const r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(b);});}
+async function dataURLToBlob(u){const r=await fetch(u);return r.blob();}
+async function uploadPhoto(blob){
+  if(S.demo||!S.assets){const id='local'+rid();S.blobs[id]=URL.createObjectURL(blob);return id;}
+  const r=await S.assets.upload(blob,{type:'image/jpeg'});S.blobs[r.id]=r.url;return r.id;
+}
+
+/* ---------- offline queue (observations) ---------- */
+let flushing=false;
+async function flushQueue(){
+  if(flushing||!S.queue.length||S.demo||!S.db||!navigator.onLine)return;
+  flushing=true;
+  try{
+    while(S.queue.length){
+      const q=S.queue[0];const body=q.body;
+      if(q.photoData&&!body.photo){body.photo=await uploadPhoto(await dataURLToBlob(q.photoData));}
+      if(q.afterData&&!body.afterPhoto){body.afterPhoto=await uploadPhoto(await dataURLToBlob(q.afterData));}
+      await S.db.collection('obs').doc(q.id).set(body);
+      S.queue.shift();saveQueue();
+    }
+    toast('Saved observations have been sent.');
+  }catch(e){}
+  flushing=false;render();
+}
+window.addEventListener('online',function(){flushQueue();render();});
+window.addEventListener('offline',function(){render();});
+setInterval(flushQueue,30000);
+
+/* ---------- rendering ---------- */
+let raf=0;
+function render(){cancelAnimationFrame(raf);raf=requestAnimationFrame(paint);}
+function softRender(){if(S.form){S.pending=true;return;}render();}
+function paint(){
+  const app=document.getElementById('app');
+  const r=myRole().role;
+  if(S.needLogin){app.innerHTML=loginView();return;}
+  if(S.ready&&r==='none'){app.innerHTML=noAccess();return;}
+  if(!allowedUnits().some(function(u){return u.id===S.unit;})&&allowedUnits()[0])S.unit=allowedUnits()[0].id;
+  const v=S.view;
+  app.innerHTML='<div class="shell">'+side()+'<div class="main">'+topbar()+viewHtml(v)+'</div></div>'+tabbar();
+  paintToast();fitSheets();
+  if(v==='settings')wireSettings();
+}
+function navItem(v,label,icon,cur){return '<button type="button" class="nav" data-go="'+v+'"'+(cur?' aria-current="page"':'')+'>'+ic(icon)+h(label)+'</button>';}
+function section(){const v=S.view;if(v==='obs'||v==='obsDetail')return 'obs';if(v==='permits'||(S.arg&&S.arg.col==='permits'))return 'permits';if(v.indexOf('rep')===0||v==='reports')return 'reports';if(v==='records'||v==='recList'||v==='recView'||v==='recForm'||v==='zs'||v==='zsForm')return 'records';return v;}
+function side(){
+  const s=section();let x='<nav class="side" aria-label="Main menu"><div class="brandblock"><b>'+h(S.settings.company)+'</b><span>OHSE · Safety Tracker</span></div>';
+  x+=navItem('home','Home','home',s==='home');
+  if(can('obs'))x+=navItem('obs','Observations','obs',s==='obs');
+  if(can('write'))x+=navItem('permits','Permits','permits',s==='permits');
+  if(can('reports'))x+=navItem('reports','Reports','reports',s==='reports');
+  if(can('write'))x+=navItem('records','Records','records',s==='records');
+  if(can('settings'))x+=navItem('settings','Settings','settings',s==='settings');
+  x+='<div class="who"><b>'+h(S.myName||'You')+'</b><span>'+h(ROLE_LABEL[myRole().role])+'</span></div></nav>';
+  return x;
+}
+function unitSwitch(){
+  const us=allowedUnits();if(us.length<2)return '<span>'+h(unitName())+'</span>';
+  return '<div class="seg" role="group" aria-label="Unit">'+us.map(function(u){return '<button type="button" data-unit="'+u.id+'" aria-pressed="'+(u.id===S.unit)+'">'+h(u.name)+'</button>';}).join('')+'</div>';
+}
+function topbar(){
+  return '<div class="topbar"><div><b>'+h(S.settings.company)+'</b><small>'+h(statusLine())+'</small></div>'+unitSwitch()+'</div>';
+}
+function statusLine(){
+  if(S.demo)return 'Preview – not saving';
+  if(!navigator.onLine)return 'Offline – saving on phone';
+  if(S.queue.length)return S.queue.length+' waiting to send';
+  if(window.SBCStore&&window.SBCStore.pending())return 'Sending to Google Drive…';
+  return ROLE_LABEL[myRole().role];
+}
+function tabbar(){
+  const s=section();
+  function t(v,label,icon,cur){return '<button type="button" class="tab" data-go="'+v+'"'+(cur?' aria-current="page"':'')+'>'+ic(icon,22)+h(label)+'</button>';}
+  let x='<nav class="tabbar" aria-label="Tabs">'+t('home','Home','home',s==='home');
+  x+=can('capture')?'<button type="button" class="tab cam" data-go="capture"><span class="c">'+ic('cam',28)+'</span>Capture</button>':'<span></span>';
+  x+=can('reports')?t('reports','Reports','reports',s==='reports'):'<span></span>';
+  x+=t('more','More','more',['more','obs','permits','records','settings'].indexOf(s)>=0)+'</nav>';
+  return x;
+}
+function head(title,sub,right){
+  return '<header class="pagehead"><div><h1>'+h(title)+'</h1>'+(sub?'<p>'+h(sub)+'</p>':'')+'</div><div class="btnrow">'+(right||'')+'</div></header>';
+}
+function deskUnit(){return '<span class="hidden-sr">Unit</span>'+unitSwitch();}
+function banners(){
+  let x='';
+  if(S.demo)x+='<div class="banner info">This is a preview – not saving.</div>';
+  else if(!navigator.onLine)x+='<div class="banner">You are offline. New observations are kept on this phone and sent when the connection returns.</div>';
+  if(S.queue.length&&navigator.onLine&&!S.demo)x+='<div class="banner info">'+S.queue.length+' observation(s) are being sent.</div>';
+  return x;
+}
+function viewHtml(v){
+  if(v!=='home'&&v!=='more'&&!viewAllowed(v))return head('Not available','Your role does not include this page.')+'<div class="content"></div>';
+  switch(v){
+    case 'home':return vHome();
+    case 'capture':return vCapture();
+    case 'obs':return vObs();
+    case 'obsDetail':return vObsDetail();
+    case 'permits':return vRecList('permits');
+    case 'records':return vRecords();
+    case 'recList':return vRecList(S.arg.col);
+    case 'recForm':return vRecForm();
+    case 'recView':return vRecView();
+    case 'reports':return vReports();
+    case 'repDaily':return vRepDaily();
+    case 'repSummary':return vRepSummary();
+    case 'repRegister':return vRepRegister(S.arg.col);
+    case 'zs':return vZs();
+    case 'zsForm':return vZsForm();
+    case 'rep2S':return vRep2S();
+    case 'settings':return vSettings();
+    case 'more':return vMore();
+  }
+  return vHome();
+}
+function viewAllowed(v){
+  if(v==='capture')return can('capture');
+  if(v==='obs'||v==='obsDetail')return can('obs');
+  if(v==='settings')return can('settings');
+  if(v.indexOf('rep')===0||v==='reports')return can('reports');
+  if(v==='recView')return can('view')||can('write');
+  return can('write');
+}
+function loginView(){
+  const st=window.SBCStore;const url=st&&st.loginUrl;
+  return '<div class="content" style="max-width:520px;margin:0 auto;padding-block:48px"><div class="panel"><header style="background:var(--brand);color:var(--brand-ink)"><h2>'+h(S.settings.company)+' · SBC Safety</h2></header><div class="body" style="display:flex;flex-direction:column;gap:14px">'
+   +(url?'<p style="margin:0">Sign in with your company Google account (<b>@sbcmail.in</b>).</p><a class="btn primary" href="'+h(url)+'" style="min-height:52px">Sign in with Google</a><small style="color:var(--muted)">After signing in, tap <b>Open SBC Safety</b>. If you started from the home-screen icon, come back to it – it opens by itself.</small>'
+   :'<p style="margin:0">The app is not connected to Google Drive yet. Add the two web-app addresses in config.js.</p>')
+   +'</div></div></div>';
+}
+function noAccess(){
+  return '<div class="content" style="max-width:560px;margin:0 auto;padding-block:60px"><div class="panel"><header><h2>'+h(S.settings.company)+' · Safety Tracker</h2></header><div class="body"><p>You don\'t have a role in the Safety Tracker yet'+(S.uid?' ('+h(S.uid)+')':'')+'.</p><p style="color:var(--muted)">Ask the OHSE Manager to add you under Settings → People and roles.</p></div></div></div>';
+}
+
+/* ---------- Home ---------- */
+function dueItems(){
+  const t=today();const out=[];
+  list('obs').forEach(function(o){const st=obsStatus(o);if(st!=='Closed'&&o.target&&o.target<=t)out.push({go:'obsDetail',id:o.id,title:o.note||'Observation',sub:(o.dept||'')+' · '+o.kind,pill:st==='Overdue'?'<span class="pill bad">Overdue</span>':'<span class="pill warn">Due today</span>',rank:st==='Overdue'?0:1});});
+  if(can('write')){
+    list('permits').forEach(function(p){if(p.status==='Approved'&&p.to&&p.to.slice(0,10)<=t)out.push({go:'recView',col:'permits',id:p.id,title:(p.kind||'Permit')+' – '+(p.contractor||''),sub:(p.dept||'')+' · close the permit',pill:'<span class="pill warn">Close today</span>',rank:1});});
+    list('certs').forEach(function(c){const d=daysTo(c.expiry);if(d!=null&&d<=30)out.push({go:'recView',col:'certs',id:c.id,title:c.equipment+(c.idno?' ('+c.idno+')':''),sub:(c.dept||'')+' · certificate',pill:duePill(c.expiry),rank:d<0?0:2});});
+    list('ext').forEach(function(e){const d=daysTo(e.refillDue);if(d!=null&&d<=30)out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – '+(e.location||''),sub:'Refill due',pill:duePill(e.refillDue),rank:d<0?0:2});if(e.condition==='Needs attention')out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||''),sub:e.location||'',pill:'<span class="pill bad">Needs attention</span>',rank:1});});
+    list('ppe').forEach(function(p){if(lowStock(p))out.push({go:'recView',col:'ppe',id:p.id,title:p.item+(p.size?' – '+p.size:''),sub:'Stock '+p.stock+', re-order at '+p.minLevel,pill:'<span class="pill bad">Low stock</span>',rank:2});});
+  }
+  return out.sort(function(a,b){return a.rank-b.rank;});
+}
+function vHome(){
+  const obs=list('obs');const open=obs.filter(function(o){return obsStatus(o)!=='Closed';});const over=obs.filter(function(o){return obsStatus(o)==='Overdue';});
+  const wk=addDays(today(),-6);const closedWk=obs.filter(function(o){return o.status==='Closed'&&(o.closedAt||'').slice(0,10)>=wk;});
+  const act=list('permits').filter(function(p){return p.status==='Approved';});
+  const due30=list('certs').filter(function(c){const d=daysTo(c.expiry);return d!=null&&d<=30;}).length+list('ext').filter(function(c){const d=daysTo(c.refillDue);return d!=null&&d<=30;}).length;
+  const hr=new Date().getHours();const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  let x=head(greet+(S.myName?', '+S.myName.split(' ')[0]:''),fmtD(today())+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(can('capture')?'<button type="button" class="btn primary" data-go="capture">'+ic('plus',18)+'New observation</button>':''));
+  x+='<div class="content">'+banners();
+  x+='<section class="tiles" aria-label="Today\'s numbers">';
+  x+='<button type="button" class="tile" data-go="obs" data-filter="Open"><div class="l">Open observations</div><div class="n">'+open.length+'</div></button>';
+  x+='<button type="button" class="tile'+(over.length?' bad':'')+'" data-go="obs" data-filter="Overdue"><div class="l">Overdue</div><div class="n">'+over.length+'</div></button>';
+  x+='<button type="button" class="tile" data-go="obs" data-filter="Closed"><div class="l">Closed in last 7 days</div><div class="n">'+closedWk.length+'</div></button>';
+  if(can('write')){
+    x+='<button type="button" class="tile" data-go="permits"><div class="l">Permits active</div><div class="n">'+act.length+'</div></button>';
+    x+='<button type="button" class="tile'+(due30?' warn':'')+'" data-go="recList" data-col="certs"><div class="l">Certificates / refills due in 30 days</div><div class="n">'+due30+'</div></button>';
+    const zw=zsWeekAvg(S.unit,weekStart());
+    x+='<button type="button" class="tile'+(zw!=null&&zw<60?' bad':'')+'" data-go="zs"><div class="l">2S score this week</div><div class="n">'+(zw==null?'—':zw+'%')+'</div></button>';
+  }
+  x+='</section><div class="cols2">';
+  const due=dueItems();
+  x+='<section class="panel" aria-labelledby="dueh"><header><h2 id="dueh">Due today</h2><span class="pill plain">'+due.length+'</span></header>';
+  x+=due.length?'<div class="rows">'+due.slice(0,12).map(function(d){return '<button type="button" class="row" data-go="'+d.go+'" data-id="'+h(d.id)+'"'+(d.col?' data-col="'+d.col+'"':'')+'><span class="t"><b>'+h(d.title)+'</b><small>'+h(d.sub)+'</small></span>'+d.pill+'</button>';}).join('')+'</div>':'<div class="empty">Nothing due today. Observations with a target date, permits to close and certificates near expiry show up here.</div>';
+  x+='</section>';
+  if(can('write'))x+=walkPanel();
+  x+='</div></div>';
+  return x;
+}
+function walkPanel(){
+  const key=today()+'_'+S.unit;const w=(S.data.walks||[]).find(function(r){return r.id===key;})||{done:[]};
+  const depts=unitObj().depts;const done=w.done||[];
+  let x='<section class="panel walk" aria-labelledby="walkh"><header><h2 id="walkh">Today\'s walk · '+h(unitName())+'</h2><span class="pill '+(done.length>=depts.length?'ok':'plain')+'">'+done.length+' of '+depts.length+'</span></header><div class="body" style="display:flex;flex-direction:column;gap:12px">';
+  x+='<div class="chips">'+depts.map(function(d){return '<button type="button" class="chip" data-walk="'+h(d)+'" aria-pressed="'+(done.indexOf(d)>=0)+'">'+h(d)+'</button>';}).join('')+'</div>';
+  x+='<small style="color:var(--muted)">Tap a department when you finish its walk: housekeeping check, unsafe acts and conditions, photos.</small></div></section>';
+  return x;
+}
+
+/* ---------- Capture ---------- */
+function vCapture(){
+  const f=S.form&&S.form.kind==='capture'?S.form:(S.form={kind:'capture',draft:{dept:'',kind:'Unsafe condition',note:'',owner:'',target:addDays(today(),3)},photo:null,photoPreview:null});
+  const d=f.draft;
+  let x=head('New observation',unitName()+' · saved on the phone first, sent when online','<button type="button" class="btn ghost" data-go="'+(S.prev||'home')+'">Cancel</button>');
+  x+='<div class="content" style="max-width:760px">'+banners()+'<form id="capform" class="form" novalidate>';
+  x+='<div class="field wide"><button type="button" class="bigcam" data-act="pickcam">'+(f.photoPreview?'<img src="'+f.photoPreview+'" alt="Photo taken">':'')+ic('cam',42)+'<span>Tap to take photo</span><small>opens the camera</small></button>';
+  x+='<div class="field" style="margin-top:4px"><label for="capnative" style="font-weight:400;font-size:13px;color:var(--muted)">If the big button does not open the camera, tap here instead:</label><input type="file" accept="image/*" id="capnative" class="in" style="padding:10px"></div>';
+  x+='<div class="btnrow"><button type="button" class="btn small" data-act="pickgal">Choose from gallery</button>'+(f.photoPreview?'<button type="button" class="btn small ghost" data-act="capclear">Remove photo</button>':'')+'</div></div>';
+  x+='<div class="field wide"><span class="lab">Department</span><div class="chips" role="group" aria-label="Department">'+unitObj().depts.map(function(dp){return '<button type="button" class="chip" data-capdept="'+h(dp)+'" aria-pressed="'+(d.dept===dp)+'">'+h(dp)+'</button>';}).join('')+'</div></div>';
+  x+='<div class="field wide"><span class="lab">Type</span><div class="chips" role="group" aria-label="Type">'+OBS_KINDS.map(function(k){return '<button type="button" class="chip" data-capkind="'+h(k)+'" aria-pressed="'+(d.kind===k)+'">'+h(k)+'</button>';}).join('')+'</div></div>';
+  x+='<div class="field wide"><label for="capnote">What did you see?</label><textarea class="in" id="capnote" placeholder="Short note – the phone keyboard\'s mic button works for speaking">'+h(d.note)+'</textarea>';
+  if(S.sample)x+='<div class="btnrow"><button type="button" class="btn small" data-act="fixwording">Fix wording</button></div>';
+  x+='</div>';
+  x+='<div class="field"><label for="capowner">Responsible (HOD / supervisor)</label><input class="in" id="capowner" value="'+h(d.owner)+'" placeholder="Name"></div>';
+  x+='<div class="field"><label for="captarget">Target date to close</label><input class="in" type="date" id="captarget" value="'+h(d.target)+'"></div>';
+  x+='</form><div class="sticky-save"><button type="button" class="btn ghost" data-go="'+(S.prev||'home')+'">Cancel</button><button type="button" class="btn primary" data-act="capsave" id="capsave">Save observation</button></div></div>';
+  return x;
+}
+function readCapture(){const f=S.form;if(!f)return;const d=f.draft;const n=document.getElementById('capnote');if(n)d.note=n.value;const o=document.getElementById('capowner');if(o)d.owner=o.value;const t=document.getElementById('captarget');if(t)d.target=t.value;}
+async function saveCapture(){
+  readCapture();const f=S.form;const d=f.draft;
+  if(!d.dept){toast('Pick the department.');return;}
+  if(!d.note&&!f.photo){toast('Add a photo or a short note.');return;}
+  const btn=document.getElementById('capsave');if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  const id=rid();const now=new Date();
+  const body={unit:S.unit,dept:d.dept,kind:d.kind,note:d.note.trim(),owner:d.owner.trim(),target:d.target||'',status:'Open',date:iso(now),createdAt:now.toISOString(),by:S.uid||''};
+  try{
+    if(S.demo||!S.db){if(f.photo)body.photo=await uploadPhoto(f.photo);await writeDoc('obs',id,body);toast('Observation saved.');}
+    else if(!navigator.onLine){throw new Error('offline');}
+    else{if(f.photo)body.photo=await uploadPhoto(f.photo);await S.db.collection('obs').doc(id).set(body);toast('Observation saved.');}
+  }catch(e){
+    const q={id:id,body:body};if(f.photo&&!body.photo)q.photoData=await blobToDataURL(f.photo);
+    S.queue.push(q);saveQueue();toast('Saved on this phone. It will be sent when the connection returns.');
+  }
+  S.form=null;go(S.prev==='obs'?'obs':'home');
+}
+async function fixWording(){
+  readCapture();const d=S.form.draft;if(!d.note.trim()){toast('Write a note first.');return;}
+  const b=document.querySelector('[data-act="fixwording"]');if(b){b.disabled=true;b.textContent='Fixing…';}
+  try{
+    const r=await S.sample('Rewrite this factory safety observation in clear, short, professional English for a safety report. Keep every fact, add nothing new, no preamble. Return only the rewritten text.\n\nObservation: '+d.note,{modelTier:'quick'});
+    d.note=(r.text||d.note).trim();const n=document.getElementById('capnote');if(n)n.value=d.note;
+  }catch(e){if(e&&e.code==='not_granted'){S.sample=null;}toast('Could not fix the wording right now.');}
+  if(b){b.disabled=false;b.textContent='Fix wording';}
+}
+
+/* ---------- Observations ---------- */
+function vObs(){
+  const all=list('obs').slice().sort(byNewest);
+  const fl=S.filter||'Open';const dp=S.deptFilter;
+  const rows=all.filter(function(o){const st=obsStatus(o);if(fl==='Open'&&st==='Closed')return false;if(fl==='Overdue'&&st!=='Overdue')return false;if(fl==='Closed'&&st!=='Closed')return false;if(dp&&o.dept!==dp)return false;return true;});
+  let x=head('Observations','Unsafe acts and conditions, with before and after photos','<span class="desk-only">'+deskUnit()+'</span>'+(can('capture')?'<button type="button" class="btn primary" data-go="capture">'+ic('plus',18)+'New observation</button>':''));
+  x+='<div class="content">'+banners()+'<div class="btnrow" style="justify-content:space-between"><div class="seg" role="group" aria-label="Show">'+['Open','Overdue','Closed','All'].map(function(k){return '<button type="button" data-filter="'+k+'" aria-pressed="'+(fl===k)+'">'+k+'</button>';}).join('')+'</div>';
+  x+='<div class="btnrow"><label for="deptf" class="hidden-sr">Department</label><select class="in" id="deptf" style="min-height:40px;width:auto"><option value="">All departments</option>'+unitObj().depts.map(function(d){return '<option'+(d===dp?' selected':'')+'>'+h(d)+'</option>';}).join('')+'</select><button type="button" class="btn small" data-go="repDaily">Today\'s report</button></div></div>';
+  if(S.queue.length)x+='<div class="panel"><header><h2>Waiting to send</h2></header><div class="rows">'+S.queue.map(function(q){return '<div class="row" style="cursor:default"><span class="t"><b>'+h(q.body.note||'Observation')+'</b><small>'+h(q.body.dept)+' · saved on this phone</small></span><span class="pill warn">Not sent</span></div>';}).join('')+'</div></div>';
+  if(!rows.length)x+='<div class="panel"><div class="empty">No observations here yet. Tap New observation to add one with a photo – it appears here and on the daily report.</div></div>';
+  else x+='<div class="cards">'+rows.map(obsCard).join('')+'</div>';
+  return x+'</div>';
+}
+function obsCard(o){
+  const st=obsStatus(o);
+  const ph=o.afterPhoto?'<div class="ph"><img src="'+photoUrl(o.photo)+'" alt="Before"><img src="'+photoUrl(o.afterPhoto)+'" alt="After"></div>':'<div class="ph one">'+(o.photo?'<img src="'+photoUrl(o.photo)+'" alt="Photo">':'<div>No photo</div>')+'</div>';
+  return '<button type="button" class="ocard" data-go="obsDetail" data-id="'+h(o.id)+'">'+ph+'<div class="meta"><div class="top"><span>'+h(o.dept)+' · '+h(o.kind)+'</span>'+pillFor(st)+'</div><b style="overflow-wrap:anywhere">'+h(o.note||'(no note)')+'</b><small style="color:var(--muted)">Raised '+fmtD(o.date)+(o.status==='Closed'?' · closed '+fmtD((o.closedAt||'').slice(0,10)):(o.target?' · target '+fmtD(o.target):''))+'</small></div></button>';
+}
+function vObsDetail(){
+  const o=(S.data.obs||[]).find(function(r){return r.id===S.arg.id;});
+  if(!o)return head('Observation','')+'<div class="content"><div class="panel"><div class="empty">This observation was not found.</div></div></div>';
+  const st=obsStatus(o);
+  let x=head(o.dept+' · '+o.kind,'Raised '+fmtD(o.date)+(o.owner?' · responsible: '+o.owner:''),'<button type="button" class="btn ghost" data-go="obs">'+ic('back',18)+'Back</button>');
+  x+='<div class="content" style="max-width:900px"><div class="cols2"><div class="panel"><header><h2>Before</h2>'+pillFor(st)+'</header>'+(o.photo?'<img src="'+photoUrl(o.photo)+'" alt="Before photo" style="width:100%;max-height:420px;object-fit:cover;display:block">':'<div class="empty">No photo</div>')+'<div class="body" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0;overflow-wrap:anywhere">'+h(o.note||'')+'</p>'+(o.action?'<p style="margin:0;overflow-wrap:anywhere"><b>Action needed:</b> '+h(o.action)+'</p>':'')+'<small style="color:var(--muted)">'+(o.hazard?h(o.hazard)+' · ':'')+(o.risk?h(o.risk)+' risk · ':'')+'Target '+(o.target?fmtD(o.target):'not set')+(o.no?' · '+h(o.no):'')+'</small></div></div>';
+  x+='<div class="panel"><header><h2>After</h2></header>';
+  if(o.status==='Closed'){x+=(o.afterPhoto?'<img src="'+photoUrl(o.afterPhoto)+'" alt="After photo" style="width:100%;max-height:420px;object-fit:cover;display:block">':'<div class="empty">Closed without an after photo</div>')+'<div class="body"><p style="margin:0">'+h(o.closeNote||'Closed')+'</p><small style="color:var(--muted)">Closed '+fmtD((o.closedAt||'').slice(0,10))+'</small>'+(can('closeObs')?'<div class="btnrow" style="margin-top:10px"><button type="button" class="btn small" data-act="reopen" data-id="'+h(o.id)+'">Reopen</button></div>':'')+'</div>';}
+  else if(can('closeObs')){x+='<div class="body" style="display:flex;flex-direction:column;gap:12px"><button type="button" class="bigcam" style="min-height:150px" data-act="pickafter" data-id="'+h(o.id)+'">'+(S.after&&S.after.id===o.id&&S.after.preview?'<img src="'+S.after.preview+'" alt="After photo">':'')+ic('cam',36)+'<span>Add after photo</span></button><label for="afternative" style="font-size:13px;color:var(--muted)">If the button does not open the camera, tap here instead:</label><input type="file" accept="image/*" id="afternative" data-id="'+h(o.id)+'" class="in" style="padding:10px"><button type="button" class="btn small" data-act="pickaftergal" data-id="'+h(o.id)+'">Choose from gallery</button><div class="field"><label for="closenote">What was done</label><input class="in" id="closenote" placeholder="e.g. Guard fixed, area cleaned"></div><button type="button" class="btn primary" data-act="closeobs" data-id="'+h(o.id)+'">Close observation</button></div>';}
+  else x+='<div class="empty">Still open.</div>';
+  x+='</div></div>';
+  if(can('write'))x+='<div class="btnrow"><button type="button" class="btn danger small" data-act="delobs" data-id="'+h(o.id)+'">'+(S.confirmDel===o.id?'Tap again to delete':'Delete observation')+'</button></div>';
+  return x+'</div>';
+}
+async function closeObs(id){
+  const o=(S.data.obs||[]).find(function(r){return r.id===id;});if(!o)return;
+  const b=document.querySelector('[data-act="closeobs"]');if(b){b.disabled=true;b.textContent='Closing…';}
+  const note=(document.getElementById('closenote')||{}).value||'';
+  const body=stripId(o);body.status='Closed';body.closedAt=new Date().toISOString();body.closeNote=note.trim();body.closedBy=S.uid||'';
+  try{if(S.after&&S.after.id===id&&S.after.blob)body.afterPhoto=await uploadPhoto(S.after.blob);await writeDoc('obs',id,body);S.after=null;toast('Observation closed.');go('obs');}
+  catch(e){toast('Could not close it. Check the connection and try again.');if(b){b.disabled=false;b.textContent='Close observation';}}
+}
+
+/* ---------- Generic records ---------- */
+function vRecords(){
+  let x=head('Records','Everything kept for audits, filed by date and unit','<span class="desk-only">'+deskUnit()+'</span>');
+  const zw=zsWeekAvg(S.unit,weekStart());
+  x+='<div class="content">'+banners()+'<div class="morelist"><button type="button" class="mtile" data-go="zs"><span class="ic">'+ic('records')+'</span><b>2S zone score</b><small>Weekly · '+(zw==null?'not scored yet':zw+'% this week')+'</small></button>'+RECORD_ORDER.map(function(c){const n=list(c).length;return '<button type="button" class="mtile" data-go="recList" data-col="'+c+'"><span class="ic">'+ic(REC[c].icon)+'</span><b>'+h(REC[c].label)+'</b><small>'+h(REC[c].sub)+' · '+n+'</small></button>';}).join('')+'</div></div>';
+  return x;
+}
+function vRecList(col){
+  const R=REC[col];let rows=list(col).slice();
+  rows.sort(col==='certs'?function(a,b){return String(a.expiry).localeCompare(String(b.expiry));}:byNewest);
+  let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase())+'</button>');
+  x+='<div class="content">'+banners()+'<div class="panel">';
+  if(!rows.length)x+='<div class="empty">No '+h(R.label.toLowerCase())+' yet for '+h(unitName())+'. Use Add '+h(R.one.toLowerCase())+' to create the first one.</div>';
+  else x+='<div class="tablewrap"><table class="list"><thead><tr>'+R.cols.map(function(c){return '<th>'+h(c[1])+'</th>';}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr class="click" data-go="recView" data-col="'+col+'" data-id="'+h(r.id)+'" tabindex="0">'+R.cols.map(function(c){return '<td>'+(c[2]?c[2](r):h(r[c[0]]))+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
+  return x+'</div></div>';
+}
+function nextNo(col){const R=REC[col];const yr=new Date().getFullYear();const n=(S.data[col]||[]).filter(function(r){return String(r.no||'').indexOf('/'+yr+'/')>=0;}).length+1;return S.settings.docPrefix+'/'+R.code+'/'+yr+'/'+String(n).padStart(3,'0');}
+function newRec(col){
+  const draft={};REC[col].fields.forEach(function(f){if(f.t==='date')draft[f.k]=today();if(f.t==='select'&&f.o)draft[f.k]=f.o[0];if(f.t==='photos'||f.t==='lines'||f.t==='people'||f.t==='checks')draft[f.k]=[];});
+  if(col==='trainings'&&S.myName)draft.trainer=S.myName;
+  S.form={kind:'rec',col:col,id:null,draft:draft};go('recForm',{col:col});
+}
+function editRec(col,id){const r=(S.data[col]||[]).find(function(x){return x.id===id;});if(!r)return;S.form={kind:'rec',col:col,id:id,draft:JSON.parse(JSON.stringify(r))};go('recForm',{col:col,id:id});}
+function fieldHtml(f,d){
+  const id='f_'+f.k;const v=d[f.k];let inner='';const lab='<label for="'+id+'">'+h(f.l)+(f.req?' *':'')+'</label>';
+  switch(f.t){
+    case 'select':inner=lab+'<select class="in" id="'+id+'">'+f.o.map(function(o){return '<option'+(o===v?' selected':'')+'>'+h(o)+'</option>';}).join('')+'</select>';break;
+    case 'dept':inner=lab+'<select class="in" id="'+id+'"><option value="">—</option>'+unitObj(d.unit).depts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+h(o)+'</option>';}).join('')+'</select>';break;
+    case 'textarea':inner=lab+'<textarea class="in" id="'+id+'">'+h(v)+'</textarea>';break;
+    case 'lines':inner=lab+'<textarea class="in" id="'+id+'">'+h((v||[]).join('\n'))+'</textarea>'+(f.hint?'<small>'+h(f.hint)+'</small>':'');break;
+    case 'people':inner=lab+'<textarea class="in" id="'+id+'" style="min-height:140px">'+h((v||[]).map(function(p){return [p.name,p.emp,p.dept].filter(Boolean).join(', ');}).join('\n'))+'</textarea><small>'+h(f.hint)+' · '+(v||[]).length+' listed</small>';break;
+    case 'checks':{const opts=f.opts(d);inner='<span class="lab">'+h(f.l)+'</span><div class="checks">'+opts.map(function(o,i){return '<label><input type="checkbox" name="c_'+f.k+'" value="'+h(o)+'"'+((v||[]).indexOf(o)>=0?' checked':'')+'>'+h(o)+'</label>';}).join('')+'</div>';break;}
+    case 'photos':inner='<span class="lab">'+h(f.l)+'</span><div class="photos" id="ph_'+f.k+'">'+photosInner(f.k,v)+'</div>';break;
+    default:inner=lab+'<input class="in" id="'+id+'" type="'+(f.t==='number'?'number':f.t)+'"'+(f.t==='number'?' inputmode="numeric"':'')+' value="'+h(v)+'">';
+  }
+  return '<div class="field'+(f.wide?' wide':'')+'">'+inner+'</div>';
+}
+function photosInner(k,v){
+  return (v||[]).map(function(pid,i){return '<span class="p"><img src="'+photoUrl(pid)+'" alt="Photo '+(i+1)+'"><button type="button" class="x" data-act="rmphoto" data-k="'+k+'" data-i="'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></span>';}).join('')+'<button type="button" class="btn" data-act="pickphotos" data-k="'+k+'">'+ic('cam',18)+'Add photos</button><input type="file" accept="image/*" multiple data-photok="'+k+'" aria-label="Add photos (alternative)" class="in" style="padding:10px;max-width:320px">';
+}
+function vRecForm(){
+  const f=S.form;if(!f||f.kind!=='rec')return head('Nothing to edit','')+'<div class="content"></div>';
+  const R=REC[f.col];const d=f.draft;
+  let x=head((f.id?'Edit ':'New ')+R.one.toLowerCase(),unitName(d.unit)+(d.no?' · '+d.no:''),'');
+  x+='<div class="content" style="max-width:900px">'+banners()+'<form id="recform" class="form" novalidate>'+R.fields.map(function(fl){return fieldHtml(fl,d);}).join('')+'</form>';
+  x+='<div class="sticky-save"><button type="button" class="btn ghost" data-act="cancelform">Cancel</button><button type="button" class="btn primary" data-act="saverec" id="saverec">Save</button></div></div>';
+  return x;
+}
+function readRecForm(){
+  const f=S.form;const R=REC[f.col];const d=f.draft;
+  R.fields.forEach(function(fl){
+    const el=document.getElementById('f_'+fl.k);
+    if(fl.t==='photos')return;
+    if(fl.t==='checks'){d[fl.k]=Array.prototype.slice.call(document.querySelectorAll('input[name="c_'+fl.k+'"]:checked')).map(function(c){return c.value;});return;}
+    if(!el)return;const v=el.value;
+    if(fl.t==='lines')d[fl.k]=v.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    else if(fl.t==='people')d[fl.k]=v.split('\n').map(function(s){return s.trim();}).filter(Boolean).map(function(line){const p=line.split(',').map(function(s){return s.trim();});return {name:p[0]||'',emp:p[1]||'',dept:p.slice(2).join(', ')};});
+    else if(fl.t==='number')d[fl.k]=v===''?'':Number(v);
+    else d[fl.k]=v;
+  });
+}
+async function saveRec(){
+  readRecForm();const f=S.form;const R=REC[f.col];const d=f.draft;
+  const miss=R.fields.filter(function(fl){return fl.req&&(d[fl.k]===''||d[fl.k]==null);});
+  if(miss.length){toast('Fill in: '+miss.map(function(m){return m.l;}).join(', '));return;}
+  const b=document.getElementById('saverec');if(b){b.disabled=true;b.textContent='Saving…';}
+  const id=f.id||rid();const body=stripId(d);
+  if(!body.unit)body.unit=S.unit;if(!body.createdAt)body.createdAt=new Date().toISOString();if(!body.by)body.by=S.uid||'';
+  if(!body.no&&!R.register)body.no=nextNo(f.col);
+  body.updatedAt=new Date().toISOString();
+  try{await writeDoc(f.col,id,body);S.form=null;toast(R.one+' saved.');go('recView',{col:f.col,id:id});}
+  catch(e){toast(e&&e.code==='quota_exceeded'?'The record store is full. Remove old records you no longer need.':'Could not save. Check the connection and try again.');if(b){b.disabled=false;b.textContent='Save';}}
+}
+function vRecView(){
+  const col=S.arg.col;const R=REC[col];const r=(S.data[col]||[]).find(function(x){return x.id===S.arg.id;});
+  if(!r)return head(R.one,'')+'<div class="content"><div class="panel"><div class="empty">This record was not found.</div></div></div>';
+  let right='<button type="button" class="btn ghost" data-go="'+(col==='permits'?'permits':'recList')+'" data-col="'+col+'">'+ic('back',18)+'Back</button>';
+  if(can('write'))right+='<button type="button" class="btn" data-act="editrec" data-col="'+col+'" data-id="'+h(r.id)+'">Edit</button>';
+  if(col==='permits'&&can('write')){
+    if(r.status==='Requested')right+='<button type="button" class="btn gold" data-act="permit" data-s="Approved" data-id="'+h(r.id)+'">Approve</button>';
+    if(r.status==='Approved')right+='<button type="button" class="btn gold" data-act="permit" data-s="Closed" data-id="'+h(r.id)+'">Close permit</button>';
+  }
+  right+=pdfButtons(R.one.replace(/[^A-Za-z]+/g,'-')+'-'+(r.no||r.date||'').replace(/[^0-9A-Za-z]+/g,'-'),shareText(col,r));
+  let x=head(R.one+(r.no?' · '+r.no:''),unitName(r.unit),right);
+  x+='<div class="content">'+banners()+'<div class="sheetwrap">'+recSheet(col,r)+'</div>';
+  if(can('write'))x+='<div class="btnrow"><button type="button" class="btn danger small" data-act="delrec" data-col="'+col+'" data-id="'+h(r.id)+'">'+(S.confirmDel===r.id?'Tap again to delete':'Delete')+'</button></div>';
+  return x+'</div>';
+}
+function sheetHead(docNo,dateTxt,unitId){
+  return '<div class="sh"><div><b>'+h(S.settings.company)+'</b><span>Occupational Health, Safety &amp; Environment · '+h(S.settings.address||S.settings.place)+'</span></div><div class="doc">'+(docNo?'<div>'+h(docNo)+'</div>':'')+'<div>'+h(dateTxt||'')+'</div><div>'+h(unitName(unitId))+'</div></div></div>';
+}
+function signBlock(a,b){return '<div class="sign"><div>'+h(a)+'</div><div>'+h(b)+'</div></div>';}
+function recSheet(col,r){
+  const R=REC[col];
+  let x='<article class="sheet" id="sheet" aria-label="'+h(R.report)+'">'+sheetHead(r.no,r.date?fmtD(r.date):(r.from?fmtDT(r.from):fmtD((r.createdAt||'').slice(0,10))),r.unit)+'<h3 class="title">'+h(R.report)+'</h3>';
+  const simple=R.fields.filter(function(f){return ['text','select','dept','date','time','number','datetime-local'].indexOf(f.t)>=0;});
+  x+='<div class="kv">'+simple.map(function(f){let v=r[f.k];if(f.t==='date')v=fmtD(v);else if(f.t==='datetime-local')v=fmtDT(v);else v=h(v);return '<div><span>'+h(f.l)+':</span> '+(v===''||v==null?'—':v)+'</div>';}).join('')+(simple.length%2?'<div></div>':'')+'</div>';
+  R.fields.forEach(function(f){
+    const v=r[f.k];
+    if(f.t==='textarea'&&v)x+='<div class="sec">'+h(f.l)+'</div><div style="white-space:pre-line">'+h(v)+'</div>';
+    if(f.t==='lines'&&v&&v.length)x+='<div class="sec">'+h(f.l)+'</div><ol>'+v.map(function(s){return '<li>'+h(s)+'</li>';}).join('')+'</ol>';
+    if(f.t==='checks'){const opts=f.opts(r);x+='<div class="sec">'+h(f.l)+'</div><table><tbody>'+opts.map(function(o){const ok=(v||[]).indexOf(o)>=0;return '<tr><td>'+h(o)+'</td><td style="width:70px;text-align:center;font-weight:700">'+(ok?'Yes':'No')+'</td></tr>';}).join('')+'</tbody></table>';}
+    if(f.t==='photos'&&v&&v.length)x+='<div class="sec">'+h(f.l)+'</div><div class="pgrid">'+v.map(function(p){return '<img src="'+photoUrl(p)+'" alt="" crossorigin="anonymous">';}).join('')+'</div>';
+    if(f.t==='people'){const ps=v||[];x+='<div class="sec">'+h(f.l)+' ('+ps.length+')</div><table><thead><tr><th style="width:44px">S.No</th><th>Name</th><th>Emp. ID</th><th>Department</th><th style="width:120px">Signature</th></tr></thead><tbody>'+(ps.length?ps:[{},{},{}]).map(function(p,i){return '<tr><td>'+(i+1)+'</td><td>'+h(p.name)+'</td><td>'+h(p.emp)+'</td><td>'+h(p.dept)+'</td><td></td></tr>';}).join('')+'</tbody></table>';}
+  });
+  if(col==='permits'&&r.approvedAt)x+='<div style="font-size:12px">Approved on '+fmtD(String(r.approvedAt).slice(0,10))+'</div>';
+  x+=col==='permits'?signBlock('Permit receiver (contractor)','Issued / approved by – OHSE'):col==='incidents'?signBlock('Investigated by – OHSE','Reviewed by – Plant Head'):signBlock('Conducted by – OHSE Manager','Reviewed by – HOD / Plant Head');
+  x+='<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article>';
+  return x;
+}
+function shareText(col,r){
+  const R=REC[col];let t=S.settings.company+' – '+R.report+'\n'+unitName(r.unit)+(r.date?' · '+fmtD(r.date):'')+(r.no?' · '+r.no:'')+'\n';
+  if(col==='trainings')t+=(r.title||'')+'\nAttendees: '+(r.people||[]).length+((r.points||[]).length?'\n- '+r.points.join('\n- '):'');
+  else if(col==='drills')t+=(r.kind||'')+' drill at '+(r.location||'')+(r.responseMin?'\nResponse time: '+r.responseMin+' min':'');
+  else if(col==='incidents')t+=(r.kind||'')+' – '+(r.description||'');
+  else if(col==='permits')t+=(r.kind||'')+' – '+(r.contractor||'')+'\n'+(r.job||'')+'\nStatus: '+(r.status||'');
+  return t;
+}
+
+/* ---------- PDF + share ---------- */
+function pdfButtons(name,text){
+  let x='';
+  if(S.dl)x+='<button type="button" class="btn primary" data-act="pdf" data-name="'+h(name)+'">'+ic('down',18)+'Download PDF</button>';
+  if(text)x+='<a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(text)+'">WhatsApp</a><button type="button" class="btn" data-act="copytext" data-text="'+h(text)+'">Copy summary</button>';
+  return x;
+}
+function loadScript(src){return new Promise(function(res,rej){if(document.querySelector('script[src="'+src+'"]'))return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=function(){rej(new Error('load'));};document.head.appendChild(s);});}
+async function makePdf(name,btn){
+  const el=document.getElementById('sheet');if(!el||!S.dl)return;
+  if(btn){btn.disabled=true;btn.lastChild.textContent='Making PDF…';}
+  try{
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await Promise.all(Object.keys(photoWait).map(function(k){return photoWait[k].catch(function(){});}));
+    const z=el.style.zoom;el.style.zoom='';
+    let canvas;try{canvas=await window.html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true});}finally{el.style.zoom=z;}
+    const J=window.jspdf.jsPDF;const wide=el.classList.contains('wide');
+    const pdf=new J({orientation:wide?'landscape':'portrait',unit:'pt',format:'a4'});
+    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),m=18;
+    const iw=pw-2*m;const scale=iw/canvas.width;const pagePx=Math.floor((ph-2*m)/scale);
+    let y=0,first=true;
+    while(y<canvas.height){
+      const hh=Math.min(pagePx,canvas.height-y);const c=document.createElement('canvas');c.width=canvas.width;c.height=hh;
+      const g=c.getContext('2d');g.fillStyle='#ffffff';g.fillRect(0,0,c.width,hh);g.drawImage(canvas,0,y,canvas.width,hh,0,0,canvas.width,hh);
+      if(!first)pdf.addPage();pdf.addImage(c.toDataURL('image/jpeg',0.9),'JPEG',m,m,iw,hh*scale);first=false;y+=hh;
+    }
+    await S.dl.save({filename:(name||'report')+'.pdf',data:pdf.output('blob')});
+    toast('PDF saved. Print two copies from your PDF viewer.');
+  }catch(e){if(e&&e.code==='declined'){}else if(e&&e.code==='unavailable'){S.dl=null;toast('Downloads are not available in this view.');}else toast('Could not make the PDF. Check the connection and try again.');}
+  if(btn){btn.disabled=false;btn.lastChild.textContent='Download PDF';}
+}
+
+/* ---------- Reports ---------- */
+function vReports(){
+  let x=head('Reports','Filled in from your records. Open one to see it exactly as it prints.','<span class="desk-only">'+deskUnit()+'</span>');
+  x+='<div class="content">'+banners()+'<div class="cols2"><section class="panel"><header><h2>Daily and summary</h2></header><div class="rows">';
+  x+=repRow('repDaily','','Daily observation report','Every day · before and after photos');
+  x+=repRow('rep2S','','Weekly 2S zone score','Zone ranking, Sort and Set in order, change from last week');
+  x+=repRow('repSummary','','Weekly / 15-day management summary','All units on one page');
+  x+='</div></section><section class="panel"><header><h2>Per event</h2></header><div class="rows">';
+  ['trainings','drills','incidents','permits'].forEach(function(c){x+=repRow('recList',c,REC[c].report.charAt(0)+REC[c].report.slice(1).toLowerCase(),list(c).length+' saved · open one to download');});
+  x+='</div></section><section class="panel"><header><h2>Registers</h2></header><div class="rows">';
+  RECORD_ORDER.filter(function(c){return REC[c].register;}).forEach(function(c){x+=repRow('repRegister',c,REC[c].label+' register',REC[c].sub);});
+  x+='</div></section>';
+  if(S.settings.sendDaily||S.settings.sendWeekly)x+='<section class="panel"><header><h2>Send list</h2></header><div class="body" style="font-size:14px;display:flex;flex-direction:column;gap:8px"><div><b>Daily report:</b> <span style="user-select:all">'+h(S.settings.sendDaily||'—')+'</span></div><div><b>Weekly summary:</b> <span style="user-select:all">'+h(S.settings.sendWeekly||'—')+'</span></div><small style="color:var(--muted)">Download the PDF, then attach it in Gmail or WhatsApp.</small></div></section>';
+  return x+'</div></div>';
+}
+function repRow(v,col,title,sub){return '<button type="button" class="row" data-go="'+v+'"'+(col?' data-col="'+col+'"':'')+'><span class="thumb" style="width:40px;height:40px;background:var(--tint);color:var(--brand)">'+ic('reports')+'</span><span class="t"><b>'+h(title)+'</b><small>'+h(sub)+'</small></span>'+ic('chev',18)+'</button>';}
+function vRepDaily(){
+  const d=S.repDate||today();
+  const all=list('obs');const raised=all.filter(function(o){return o.date===d;});const closed=all.filter(function(o){return o.status==='Closed'&&(o.closedAt||'').slice(0,10)===d&&o.date!==d;});
+  const stillOpen=all.filter(function(o){return o.status!=='Closed';}).length;const over=all.filter(function(o){return obsStatus(o)==='Overdue';}).length;
+  const rows=raised.concat(closed).sort(function(a,b){return String(a.dept).localeCompare(String(b.dept));});
+  const text=S.settings.company+' – Daily safety observation report\n'+unitName()+' · '+fmtD(d)+'\nRaised: '+raised.length+' · Closed: '+(closed.length+raised.filter(function(o){return o.status==='Closed';}).length)+' · Still open: '+stillOpen+' · Overdue: '+over+'\n'+rows.slice(0,15).map(function(o,i){return (i+1)+'. '+o.dept+' – '+(o.note||o.kind)+' ['+obsStatus(o)+']';}).join('\n');
+  let x=head('Daily observation report',unitName(),'<label for="repdate" class="hidden-sr">Date</label><input class="in" type="date" id="repdate" value="'+d+'" style="width:auto;min-height:44px">'+pdfButtons('Daily-observation-'+d,text));
+  x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet wide" id="sheet">'+sheetHead(S.settings.docPrefix+'/DOR/'+d.replace(/-/g,''),fmtD(d))+'<h3 class="title">DAILY SAFETY OBSERVATION REPORT</h3>';
+  x+='<div class="stats"><div><b>'+raised.length+'</b><span>Raised today</span></div><div><b>'+(closed.length+raised.filter(function(o){return o.status==='Closed';}).length)+'</b><span>Closed today</span></div><div><b>'+stillOpen+'</b><span>Still open (all days)</span></div><div><b>'+over+'</b><span>Overdue</span></div></div>';
+  x+='<table><thead><tr><th style="width:40px">S.No</th><th>Department</th><th>Observation</th><th style="width:134px">Before</th><th style="width:134px">After</th><th>Responsible</th><th>Target</th><th>Status</th></tr></thead><tbody>';
+  x+=rows.length?rows.map(function(o,i){return '<tr><td>'+(i+1)+'</td><td>'+h(o.dept)+'<br><span style="color:var(--paper-muted)">'+h(o.kind)+'</span></td><td>'+h(o.note)+(o.action?'<br><span style="color:var(--paper-muted)">Action: '+h(o.action)+'</span>':'')+'</td><td>'+(o.photo?'<img src="'+photoUrl(o.photo)+'" alt="">':'<div class="noph">No photo</div>')+'</td><td>'+(o.afterPhoto?'<img src="'+photoUrl(o.afterPhoto)+'" alt="">':'<div class="noph">Pending</div>')+'</td><td>'+h(o.owner)+'</td><td>'+fmtD(o.target)+'</td><td><b>'+obsStatus(o)+'</b></td></tr>';}).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--paper-muted);padding:18px">No observations raised or closed on this date.</td></tr>';
+  x+='</tbody></table>'+signBlock('Prepared by – OHSE Manager','Reviewed by – Plant Head')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
+  return x;
+}
+function inRange(s,a,b){s=String(s||'').slice(0,10);return s>=a&&s<=b;}
+function vRepSummary(){
+  const r=S.range||{from:addDays(today(),-6),to:today()};
+  const units=allowedUnits();
+  let x=head('Management summary',fmtD(r.from)+' to '+fmtD(r.to),'<div class="seg" role="group" aria-label="Period"><button type="button" data-range="7" aria-pressed="'+(r.from===addDays(r.to,-6))+'">7 days</button><button type="button" data-range="15" aria-pressed="'+(r.from===addDays(r.to,-14))+'">15 days</button></div>');
+  const all=function(c){return (S.data[c]||[]);};
+  let text=S.settings.company+' – OHSE summary '+fmtD(r.from)+' to '+fmtD(r.to);
+  let body='<table><thead><tr><th>Item</th>'+units.map(function(u){return '<th>'+h(u.name)+'</th>';}).join('')+'<th>Total</th></tr></thead><tbody>';
+  const lines=[
+    ['Observations raised',function(u){return all('obs').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).length;}],
+    ['Observations closed',function(u){return all('obs').filter(function(o){return o.unit===u&&o.status==='Closed'&&inRange(o.closedAt,r.from,r.to);}).length;}],
+    ['Open now',function(u){return all('obs').filter(function(o){return o.unit===u&&o.status!=='Closed';}).length;}],
+    ['Overdue now',function(u){return all('obs').filter(function(o){return o.unit===u&&obsStatus(o)==='Overdue';}).length;}],
+    ['Trainings held',function(u){return all('trainings').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).length;}],
+    ['People trained',function(u){return all('trainings').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).reduce(function(s,o){return s+(o.people||[]).length;},0);}],
+    ['Mock drills',function(u){return all('drills').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).length;}],
+    ['Work permits issued',function(u){return all('permits').filter(function(o){return o.unit===u&&inRange(o.createdAt,r.from,r.to);}).length;}],
+    ['Incidents / near misses',function(u){return all('incidents').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).length;}],
+    ['First aid cases',function(u){return all('firstaid').filter(function(o){return o.unit===u&&inRange(o.date,r.from,r.to);}).length;}],
+    ['2S average score, week of '+fmtD(weekStart(r.to))+' (%)',function(u){const a=zsWeekAvg(u,weekStart(r.to));return a==null?0:a;}],
+    ['Certificates expiring in 30 days',function(u){return all('certs').filter(function(o){const d=daysTo(o.expiry);return o.unit===u&&d!=null&&d<=30;}).length;}]
+  ];
+  lines.forEach(function(l){const vals=units.map(function(u){return l[1](u.id);});const isPct=l[0].indexOf('2S')===0;const tot=isPct?(function(){const nz=vals.filter(function(v){return v>0;});return nz.length?Math.round(nz.reduce(function(a,b){return a+b;},0)/nz.length):0;})():vals.reduce(function(a,b){return a+b;},0);body+='<tr><td>'+h(l[0])+'</td>'+vals.map(function(v){return '<td class="num">'+v+'</td>';}).join('')+'<td class="num"><b>'+tot+'</b></td></tr>';text+='\n'+l[0]+': '+tot;});
+  body+='</tbody></table>';
+  const depts={};all('obs').filter(function(o){return inRange(o.date,r.from,r.to);}).forEach(function(o){const k=unitName(o.unit)+' – '+o.dept;depts[k]=depts[k]||{n:0,c:0};depts[k].n++;if(o.status==='Closed')depts[k].c++;});
+  const dk=Object.keys(depts).sort(function(a,b){return depts[b].n-depts[a].n;});
+  body+='<div class="sec">Observations by department</div><table><thead><tr><th>Department</th><th>Raised</th><th>Closed</th><th>Closure %</th></tr></thead><tbody>'+(dk.length?dk.map(function(k){return '<tr><td>'+h(k)+'</td><td class="num">'+depts[k].n+'</td><td class="num">'+depts[k].c+'</td><td class="num">'+Math.round(100*depts[k].c/depts[k].n)+'%</td></tr>';}).join(''):'<tr><td colspan="4" style="color:var(--paper-muted)">No observations in this period.</td></tr>')+'</tbody></table>';
+  x=x.replace('</div></header>',pdfButtons('OHSE-summary-'+r.from+'-to-'+r.to,text)+'</div></header>');
+  x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet" id="sheet">'+sheetHead(S.settings.docPrefix+'/MIS/'+r.to.replace(/-/g,''),fmtD(r.from)+' – '+fmtD(r.to),units.length===1?units[0].id:null).replace('<div>'+h(unitName(null))+'</div>',units.length>1?'<div>All units</div>':'<div>'+h(units[0].name)+'</div>')+'<h3 class="title">OHSE MANAGEMENT SUMMARY</h3>'+body+signBlock('Prepared by – OHSE Manager','Reviewed by – Management')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
+  return x;
+}
+function vRepRegister(col){
+  const R=REC[col];let rows=list(col).slice();
+  const month=S.regMonth||today().slice(0,7);
+  if(R.dated)rows=rows.filter(function(r){return String(r.date||'').slice(0,7)===month;});
+  rows.sort(function(a,b){return String(a.date||a.expiry||a.tag||a.item||'').localeCompare(String(b.date||b.expiry||b.tag||b.item||''));});
+  const fields=R.fields.filter(function(f){return f.t!=='photos'&&f.t!=='textarea';});
+  let x=head(R.label+' register',unitName()+(R.dated?' · '+MON[+month.slice(5)-1]+' '+month.slice(0,4):''),(R.dated?'<label for="regmonth" class="hidden-sr">Month</label><input class="in" type="month" id="regmonth" value="'+month+'" style="width:auto;min-height:44px">':'')+'<button type="button" class="btn" data-go="recList" data-col="'+col+'">Edit list</button>'+pdfButtons(R.label.replace(/[^A-Za-z]+/g,'-')+'-register-'+month,''));
+  x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet'+(fields.length>6?' wide':'')+'" id="sheet">'+sheetHead(S.settings.docPrefix+'/'+R.code+'/'+month.replace('-',''),R.dated?MON[+month.slice(5)-1]+' '+month.slice(0,4):fmtD(today()))+'<h3 class="title">'+h(R.report)+'</h3>';
+  x+='<table><thead><tr><th style="width:40px">S.No</th>'+fields.map(function(f){return '<th>'+h(f.l)+'</th>';}).join('')+'</tr></thead><tbody>'+(rows.length?rows.map(function(r,i){return '<tr><td>'+(i+1)+'</td>'+fields.map(function(f){let v=r[f.k];if(f.t==='date')v=fmtD(v);else v=h(v);return '<td>'+v+'</td>';}).join('')+'</tr>';}).join(''):'<tr><td colspan="'+(fields.length+1)+'" style="text-align:center;color:var(--paper-muted);padding:18px">No entries'+(R.dated?' this month':'')+'.</td></tr>')+'</tbody></table>';
+  x+=signBlock('Checked by – OHSE','Verified by – HOD / Plant Head')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
+  return x;
+}
+
+/* ---------- 2S zone score ---------- */
+function weekLabel(wk){return fmtD(wk)+' – '+fmtD(addDays(wk,6));}
+function weekNav(view){const wk=S.zsWeek||weekStart();return '<div class="seg" role="group" aria-label="Week"><button type="button" data-zsweek="-7" aria-label="Previous week">‹</button><button type="button" aria-pressed="true" data-zsweek="0">'+h(weekLabel(wk))+'</button><button type="button" data-zsweek="7" aria-label="Next week"'+(wk>=weekStart()?' disabled':'')+'>›</button></div>';}
+function zsRows(uid,wk){
+  const d=zsDoc(uid,wk);const prev=zsDoc(uid,addDays(wk,-7));
+  return zonesOf(uid).map(function(z){const c=zsCalc(d&&d.zones&&d.zones[z]);const p=zsCalc(prev&&prev.zones&&prev.zones[z]);return {zone:z,c:c,p:p,e:d&&d.zones&&d.zones[z]};});
+}
+function vZs(){
+  const wk=S.zsWeek||weekStart();const rows=zsRows(S.unit,wk);const done=rows.filter(function(r){return r.c;}).length;const avg=zsWeekAvg(S.unit,wk);
+  let x=head('2S zone score','Sort and Set in order · '+unitName()+' · scored weekly','<span class="desk-only">'+deskUnit()+'</span><button type="button" class="btn" data-go="rep2S">Report / PDF</button>');
+  x+='<div class="content">'+banners()+'<div class="btnrow" style="justify-content:space-between">'+weekNav()+'<span class="pill plain">'+done+' of '+rows.length+' zones scored · average '+(avg==null?'—':avg+'%')+'</span></div>';
+  x+='<div class="panel"><div class="tablewrap"><table class="list"><thead><tr><th>Zone</th><th class="num">Sort /25</th><th class="num">Set in order /25</th><th class="num">Total /50</th><th>Score</th><th>vs last week</th><th></th></tr></thead><tbody>';
+  x+=rows.map(function(r){const diff=r.c&&r.p?r.c.pct-r.p.pct:null;return '<tr><td><b>'+h(r.zone)+'</b>'+(r.e&&r.e.remarks?'<br><small style="color:var(--muted)">'+h(r.e.remarks)+'</small>':'')+'</td><td class="num">'+(r.c?r.c.sort:'—')+'</td><td class="num">'+(r.c?r.c.set:'—')+'</td><td class="num">'+(r.c?r.c.total:'—')+'</td><td>'+pctPill(r.c?r.c.pct:null)+'</td><td class="num">'+(diff==null?'—':(diff>0?'▲ +':diff<0?'▼ ':'')+diff+'%')+'</td><td><button type="button" class="btn small'+(r.c?'':' primary')+'" data-act="zsscore" data-zone="'+h(r.zone)+'">'+(r.c?'Rescore':'Score')+'</button></td></tr>';}).join('');
+  x+='</tbody></table></div></div><small style="color:var(--muted)">Each zone is scored on 10 points, 1 to 5 each (1 = poor, 5 = excellent). Zones are your departments; change them in Settings.</small></div>';
+  return x;
+}
+function startZs(zone){
+  const wk=S.zsWeek||weekStart();const d=zsDoc(S.unit,wk);const e=d&&d.zones&&d.zones[zone];
+  S.form={kind:'zs',zone:zone,week:wk,draft:e?JSON.parse(JSON.stringify(e)):{scores:ZS_CRIT.map(function(){return 0;}),remarks:'',photos:[]}};
+  if(!S.form.draft.photos)S.form.draft.photos=[];
+  go('zsForm');
+}
+function vZsForm(){
+  const f=S.form;if(!f||f.kind!=='zs')return head('Nothing to score','')+'<div class="content"></div>';
+  const d=f.draft;const c=zsCalc(d);
+  let x=head('2S score · '+f.zone,unitName()+' · week of '+fmtD(f.week),'<span class="pill plain" style="font-size:15px">'+c.total+' / '+ZS_MAX+' · '+c.pct+'%</span>');
+  x+='<div class="content" style="max-width:900px">'+banners();
+  let grp='';
+  ZS_CRIT.forEach(function(cr,i){
+    if(cr[0]!==grp){if(grp)x+='</div></section>';grp=cr[0];x+='<section class="panel"><header><h2>'+h(grp)+'</h2><span class="pill plain">'+(i<5?c.sort:c.set)+' / 25</span></header><div class="rows">';}
+    x+='<div class="row" style="cursor:default;flex-wrap:wrap"><span class="t"><b style="font-weight:500">'+(i+1)+'. '+h(cr[1])+'</b></span><div class="seg" role="group" aria-label="Score for '+h(cr[1])+'">'+[1,2,3,4,5].map(function(n){return '<button type="button" data-zsc="'+i+'" data-v="'+n+'" aria-pressed="'+(Number(d.scores[i])===n)+'">'+n+'</button>';}).join('')+'</div></div>';
+  });
+  x+='</div></section>';
+  x+='<div class="form"><div class="field wide"><label for="zsremarks">Remarks / points to improve</label><textarea class="in" id="zsremarks">'+h(d.remarks)+'</textarea></div><div class="field wide"><span class="lab">Photos</span><div class="photos" id="ph_photos">'+photosInner('photos',d.photos)+'</div></div></div>';
+  x+='<div class="sticky-save"><button type="button" class="btn ghost" data-act="zscancel">Cancel</button><button type="button" class="btn primary" data-act="zssave" id="zssave">Save score</button></div></div>';
+  return x;
+}
+function readZs(){const n=document.getElementById('zsremarks');if(n&&S.form)S.form.draft.remarks=n.value;}
+async function saveZs(){
+  readZs();const f=S.form;const d=f.draft;
+  if(d.scores.some(function(v){return !v;})){toast('Give every point a score from 1 to 5.');return;}
+  const b=document.getElementById('zssave');if(b){b.disabled=true;b.textContent='Saving…';}
+  const id=S.unit+'_'+f.week;const cur=zsDoc(S.unit,f.week);const body=cur?stripId(cur):{unit:S.unit,week:f.week,zones:{}};
+  body.zones=body.zones||{};body.zones[f.zone]={scores:d.scores.map(Number),remarks:(d.remarks||'').trim(),photos:d.photos||[],by:S.uid||'',at:new Date().toISOString()};
+  try{await writeDoc('zs',id,body);S.form=null;toast(f.zone+' scored.');go('zs');}
+  catch(e){toast('Could not save. Check the connection and try again.');if(b){b.disabled=false;b.textContent='Save score';}}
+}
+function vRep2S(){
+  const wk=S.zsWeek||weekStart();const rows=zsRows(S.unit,wk);
+  const scored=rows.filter(function(r){return r.c;}).sort(function(a,b){return b.c.pct-a.c.pct;});
+  const rank={};scored.forEach(function(r,i){rank[r.zone]=i+1;});
+  const avg=zsWeekAvg(S.unit,wk);const pavg=zsWeekAvg(S.unit,addDays(wk,-7));
+  const text=S.settings.company+' – Weekly 2S zone score\n'+unitName()+' · week of '+fmtD(wk)+'\nAverage: '+(avg==null?'—':avg+'%')+(pavg!=null&&avg!=null?' (last week '+pavg+'%)':'')+'\n'+scored.map(function(r,i){return (i+1)+'. '+r.zone+' – '+r.c.pct+'%';}).join('\n');
+  let x=head('Weekly 2S zone score',unitName(),weekNav()+pdfButtons('2S-zone-score-'+wk,text));
+  x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet wide" id="sheet">'+sheetHead(S.settings.docPrefix+'/2S/'+wk.replace(/-/g,''),'Week '+weekLabel(wk))+'<h3 class="title">WEEKLY 2S ZONE SCORE</h3>';
+  x+='<div class="stats"><div><b>'+(avg==null?'—':avg+'%')+'</b><span>Average this week</span></div><div><b>'+(pavg==null?'—':pavg+'%')+'</b><span>Last week</span></div><div><b>'+(scored[0]?h(scored[0].zone):'—')+'</b><span>Best zone</span></div><div><b>'+(scored.length>1?h(scored[scored.length-1].zone):'—')+'</b><span>Needs most work</span></div></div>';
+  x+='<table><thead><tr><th>Zone</th>'+ZS_CRIT.map(function(c,i){return '<th style="text-align:center" title="'+h(c[1])+'">'+(i<5?'S1.':'S2.')+((i%5)+1)+'</th>';}).join('')+'<th>Sort /25</th><th>Set /25</th><th>Total /50</th><th>%</th><th>Rank</th><th>vs last wk</th></tr></thead><tbody>';
+  x+=rows.map(function(r){const sc=r.e&&r.e.scores||[];const diff=r.c&&r.p?r.c.pct-r.p.pct:null;return '<tr><td><b>'+h(r.zone)+'</b></td>'+ZS_CRIT.map(function(c,i){return '<td style="text-align:center">'+(sc[i]||'—')+'</td>';}).join('')+'<td class="num">'+(r.c?r.c.sort:'—')+'</td><td class="num">'+(r.c?r.c.set:'—')+'</td><td class="num"><b>'+(r.c?r.c.total:'—')+'</b></td><td class="num"><b>'+(r.c?r.c.pct+'%':'Not scored')+'</b></td><td class="num">'+(rank[r.zone]||'—')+'</td><td class="num">'+(diff==null?'—':(diff>0?'+':'')+diff+'%')+'</td></tr>';}).join('');
+  x+='</tbody></table>';
+  const rem=rows.filter(function(r){return r.e&&r.e.remarks;});
+  if(rem.length)x+='<div class="sec">Points to improve</div><table><tbody>'+rem.map(function(r){return '<tr><td style="width:180px"><b>'+h(r.zone)+'</b></td><td>'+h(r.e.remarks)+'</td></tr>';}).join('')+'</tbody></table>';
+  const ph=[];rows.forEach(function(r){(r.e&&r.e.photos||[]).forEach(function(p){ph.push({p:p,z:r.zone});});});
+  if(ph.length)x+='<div class="sec">Photos</div><div class="pgrid" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+ph.slice(0,12).map(function(o){return '<figure style="margin:0"><img src="'+photoUrl(o.p)+'" alt=""><figcaption style="font-size:11px;text-align:center">'+h(o.z)+'</figcaption></figure>';}).join('')+'</div>';
+  x+='<div class="sec">Scoring points (1 = poor, 5 = excellent)</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 24px;font-size:11.5px">'+ZS_CRIT.map(function(c,i){return '<div><b>'+(i<5?'S1.':'S2.')+((i%5)+1)+'</b> '+h(c[0])+' – '+h(c[1])+'</div>';}).join('')+'</div>';
+  x+=signBlock('Audited by – OHSE','Reviewed by – Plant Head')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
+  return x;
+}
+
+/* ---------- More (phone) ---------- */
+function vMore(){
+  let x=head('More',(S.myName||'')+' · '+ROLE_LABEL[myRole().role],'');
+  x+='<div class="content">'+banners()+'<div class="morelist">';
+  const t=function(go,col,icon,label,sub){return '<button type="button" class="mtile" data-go="'+go+'"'+(col?' data-col="'+col+'"':'')+'><span class="ic">'+ic(icon)+'</span><b>'+h(label)+'</b><small>'+h(sub)+'</small></button>';};
+  if(can('obs'))x+=t('obs','','obs','Observations','Open, overdue, closed');
+  if(can('write')){x+=t('permits','','permits','Permits','Hot work, LOTO, height');x+=t('zs','','records','2S zone score','Weekly, by zone');RECORD_ORDER.forEach(function(c){x+=t('recList',c,REC[c].icon,REC[c].label,REC[c].sub);});}
+  if(can('settings'))x+=t('settings','','settings','Settings','Units, people, backup');
+  x+='</div><div class="panel"><div class="body" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between"><small style="color:var(--muted)">Signed in as '+h(S.uid||'')+(window.SBCStore&&window.SBCStore.pending()?' · '+window.SBCStore.pending()+' change(s) waiting to send':' · all saved to Google Drive')+'</small><button type="button" class="btn small" data-act="signout">Sign out</button></div></div>';
+  return x+'</div>';
+}
+
+/* ---------- Settings ---------- */
+function vSettings(){
+  const st=S.settings;
+  let x=head('Settings','Company details, units and departments, people and roles, backup','');
+  x+='<div class="content" style="max-width:960px">'+banners();
+  x+='<section class="panel"><header><h2>Report header</h2></header><div class="body"><div class="form"><div class="field"><label for="s_company">Company name</label><input class="in" id="s_company" value="'+h(st.company)+'"></div><div class="field"><label for="s_place">Place</label><input class="in" id="s_place" value="'+h(st.place)+'"></div><div class="field wide"><label for="s_address">Address (shown on reports)</label><input class="in" id="s_address" value="'+h(st.address||'')+'"></div><div class="field"><label for="s_prefix">Document number prefix</label><input class="in" id="s_prefix" value="'+h(st.docPrefix)+'"></div></div></div></section>';
+  x+='<section class="panel"><header><h2>Units and departments</h2></header><div class="body"><div class="form">'+st.units.map(function(u,i){return '<div class="field wide"><label for="s_un'+i+'">Unit name</label><input class="in" id="s_un'+i+'" value="'+h(u.name)+'"><label for="s_ud'+i+'">Departments (one per line)</label><textarea class="in" id="s_ud'+i+'">'+h(u.depts.join('\n'))+'</textarea><label for="s_uz'+i+'">2S zones (one per line – leave empty to use the departments)</label><textarea class="in" id="s_uz'+i+'">'+h((u.zones||[]).join(String.fromCharCode(10)))+'</textarea></div>';}).join('')+'</div></div></section>';
+  x+='<section class="panel"><header><h2>Send list</h2></header><div class="body"><div class="form"><div class="field wide"><label for="s_sd">Daily report goes to</label><input class="in" id="s_sd" value="'+h(st.sendDaily)+'" placeholder="e.g. HODs WhatsApp group, plant head email"></div><div class="field wide"><label for="s_sw">Weekly / 15-day summary goes to</label><input class="in" id="s_sw" value="'+h(st.sendWeekly)+'" placeholder="e.g. management email addresses"></div></div></div></section>';
+  x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="savesettings">Save settings</button></div>';
+  x+='<section class="panel"><header><h2>People and roles</h2></header><div class="body" style="display:flex;flex-direction:column;gap:14px">';
+  x+='<small style="color:var(--muted)">Admin sees everything. Safety officer: one unit, everything except settings. HOD: own departments – observations and reports. Management: reports only. People sign in with their own @sbcmail.in Google account.</small>';
+  if(S.user&&!S.demo){x+='<div class="field"><label for="psearch">Add a person – type their company email</label><input class="in" id="psearch" placeholder="e.g. mrsbc4@sbcmail.in" autocomplete="off" inputmode="email"></div><div id="presults" class="rows"></div>';}
+  else x+='<div class="banner info">People can be added when the app is opened from its link.</div>';
+  const ids=Object.keys(st.roles||{});
+  x+='<div class="tablewrap"><table class="list"><thead><tr><th>Person</th><th>Role</th><th>Units</th><th>Departments (HOD)</th><th></th></tr></thead><tbody>'+(ids.length?ids.map(function(id){const r=st.roles[id];return '<tr><td data-name="'+h(id)+'">'+h(S.names[id]||'…')+'</td><td><select class="in" data-role="'+h(id)+'" aria-label="Role">'+['officer','hod','management','admin'].map(function(k){return '<option value="'+k+'"'+(r.role===k?' selected':'')+'>'+ROLE_LABEL[k]+'</option>';}).join('')+'</select></td><td><select class="in" data-runit="'+h(id)+'" aria-label="Unit"><option value="">All units</option>'+st.units.map(function(u){return '<option value="'+u.id+'"'+((r.units||[])[0]===u.id?' selected':'')+'>'+h(u.name)+'</option>';}).join('')+'</select></td><td><input class="in" data-rdepts="'+h(id)+'" value="'+h((r.depts||[]).join(', '))+'" placeholder="e.g. PDC, GDC" aria-label="Departments"></td><td><button type="button" class="btn small ghost" data-act="rmperson" data-id="'+h(id)+'">Remove</button></td></tr>';}).join(''):'<tr><td colspan="5" style="color:var(--muted)">Only you (owner, Admin) for now.</td></tr>')+'</tbody></table></div>';
+  if(ids.length)x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="saveroles">Save roles</button></div>';
+  x+='</div></section>';
+  x+='<section class="panel"><header><h2>Backup and restore</h2></header><div class="body" style="display:flex;flex-direction:column;gap:12px"><small style="color:var(--muted)">The backup file holds all records and settings (photos stay stored in the app). Keep a copy on your D drive or Google Drive every week.</small><div class="btnrow">'+(S.dl?'<button type="button" class="btn" data-act="backup">'+ic('down',18)+'Download backup</button>':'')+'<label class="btn filebtn">Restore from backup file<input type="file" accept="application/json,.json" id="restorefile"></label></div>'+(S.restore?'<div class="banner">Restore will add or overwrite '+S.restore.count+' records from '+h(S.restore.name)+'. <button type="button" class="btn small" data-act="dorestore">Restore now</button> <button type="button" class="btn small ghost" data-act="cancelrestore">Cancel</button></div>':'')+'</div></section>';
+  return x+'</div>';
+}
+function wireSettings(){
+  const ids=Object.keys(S.settings.roles||{});
+  if(ids.length&&S.user){S.user.profiles(ids).then(function(ps){ids.forEach(function(id){S.names[id]=ps[id]&&ps[id].name||'Someone';const td=document.querySelector('td[data-name="'+CSS.escape(id)+'"]');if(td)td.textContent=S.names[id];});});}
+  const ps=document.getElementById('psearch');
+  if(ps){
+    const show=function(q){S.user.search(q).then(function(hits){const box=document.getElementById('presults');if(!box)return;box.textContent='';hits.filter(function(p){return !p.isMe&&!(S.settings.roles||{})[p.id];}).forEach(function(p){const b=document.createElement('button');b.type='button';b.className='row';b.dataset.act='addperson';b.dataset.id=p.id;const t=document.createElement('span');t.className='t';const bb=document.createElement('b');bb.textContent=p.name;t.appendChild(bb);b.appendChild(t);const s=document.createElement('span');s.className='pill plain';s.textContent='Add';b.appendChild(s);S.names[p.id]=p.name;box.appendChild(b);});});};
+    ps.addEventListener('input',function(){show(ps.value);});
+  }
+}
+async function saveSettings(){
+  const st=JSON.parse(JSON.stringify(S.settings));
+  st.company=document.getElementById('s_company').value.trim()||DEFAULT_SETTINGS.company;
+  st.place=document.getElementById('s_place').value.trim();st.address=document.getElementById('s_address').value.trim();
+  st.docPrefix=document.getElementById('s_prefix').value.trim()||'SBC/OHSE';
+  st.units.forEach(function(u,i){u.name=document.getElementById('s_un'+i).value.trim()||u.name;u.depts=document.getElementById('s_ud'+i).value.split('\n').map(function(s){return s.trim();}).filter(Boolean);u.zones=document.getElementById('s_uz'+i).value.split('\n').map(function(s){return s.trim();}).filter(Boolean);});
+  st.sendDaily=document.getElementById('s_sd').value.trim();st.sendWeekly=document.getElementById('s_sw').value.trim();
+  await putSettings(st);toast('Settings saved.');
+}
+async function putSettings(st){
+  S.settings=st;
+  if(S.demo||!S.db){render();return;}
+  try{await S.db.doc('config/settings').set(JSON.parse(JSON.stringify(st)));}catch(e){toast('Could not save settings.');}
+}
+function readRoles(){
+  const st=JSON.parse(JSON.stringify(S.settings));
+  Object.keys(st.roles||{}).forEach(function(id){
+    const r=document.querySelector('[data-role="'+CSS.escape(id)+'"]'),u=document.querySelector('[data-runit="'+CSS.escape(id)+'"]'),d=document.querySelector('[data-rdepts="'+CSS.escape(id)+'"]');
+    if(r)st.roles[id].role=r.value;if(u)st.roles[id].units=u.value?[u.value]:[];if(d)st.roles[id].depts=d.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  });
+  return st;
+}
+async function backup(){
+  const out={app:'SBC Safety Tracker',exportedAt:new Date().toISOString(),settings:S.settings,data:{}};
+  COLS.forEach(function(c){out.data[c]=S.data[c];});
+  try{await S.dl.save({filename:'SBC-Safety-backup-'+today()+'.json',data:JSON.stringify(out,null,1)});toast('Backup saved.');}catch(e){if(!e||e.code!=='declined')toast('Could not save the backup.');}
+}
+async function doRestore(){
+  const r=S.restore;if(!r)return;S.restore=null;let n=0;
+  try{
+    if(r.json.settings)await putSettings(Object.assign({},DEFAULT_SETTINGS,r.json.settings));
+    for(const c of COLS){const rows=(r.json.data||{})[c]||[];for(const row of rows){if(!row||!row.id)continue;await writeDoc(c,String(row.id),stripId(row));n++;}}
+    toast('Restored '+n+' records.');
+  }catch(e){toast('Restore stopped after '+n+' records. Try again.');}
+  render();
+}
+
+/* ---------- navigation + events ---------- */
+function go(v,arg){
+  if(S.form&&v!=='recForm'&&v!=='capture'&&v!=='zsForm'){S.form=null;}
+  if(v!=='capture')S.prev=v; S.view=v;S.arg=arg||null;S.confirmDel=null;
+  if(S.pending){S.pending=false;}
+  try{localStorage.setItem('sbc_view',JSON.stringify({v:v,arg:arg||null}));}catch(e){}
+  render();window.scrollTo(0,0);
+}
+document.addEventListener('click',async function(e){
+  const t=e.target.closest('[data-go],[data-act],[data-unit],[data-filter],[data-walk],[data-capdept],[data-capkind],[data-range],[data-zsc],[data-zsweek]');
+  if(!t)return;
+  if(t.dataset.zsc){readZs();S.form.draft.scores[+t.dataset.zsc]=+t.dataset.v;const y=window.scrollY;render();requestAnimationFrame(function(){requestAnimationFrame(function(){window.scrollTo(0,y);});});return;}
+  if(t.dataset.zsweek){const n=+t.dataset.zsweek;if(n){const w=addDays(S.zsWeek||weekStart(),n);S.zsWeek=w>weekStart()?weekStart():w;render();}return;}
+  if(t.dataset.act==='pickcam')return pickFile({capture:true},function(fs){onCapFile(fs[0]);});
+  if(t.dataset.act==='pickgal')return pickFile({},function(fs){onCapFile(fs[0]);});
+  if(t.dataset.act==='pickafter'||t.dataset.act==='pickaftergal'){const oid=t.dataset.id;return pickFile({capture:t.dataset.act==='pickafter'},function(fs){onAfterFile(fs[0],oid);});}
+  if(t.dataset.act==='pickphotos'){const k=t.dataset.k;return pickFile({multiple:true},function(fs){onPhotos(fs,k);});}
+  if(t.dataset.act==='zsscore')return startZs(t.dataset.zone);
+  if(t.dataset.act==='zssave')return saveZs();
+  if(t.dataset.act==='zscancel'){S.form=null;go('zs');return;}
+  if(t.dataset.unit){S.unit=t.dataset.unit;try{localStorage.setItem('sbc_unit',S.unit);}catch(err){}if(S.form&&S.form.kind==='capture'){readCapture();S.form.draft.dept='';}render();return;}
+  if(t.dataset.capdept){readCapture();S.form.draft.dept=t.dataset.capdept;render();return;}
+  if(t.dataset.capkind){readCapture();S.form.draft.kind=t.dataset.capkind;render();return;}
+  if(t.dataset.range){const n=+t.dataset.range;S.range={from:addDays(today(),-(n-1)),to:today()};render();return;}
+  if(t.dataset.walk){toggleWalk(t.dataset.walk);return;}
+  if(t.dataset.filter&&!t.dataset.go){S.filter=t.dataset.filter;render();return;}
+  if(t.dataset.go){
+    const v=t.dataset.go;if(t.dataset.filter)S.filter=t.dataset.filter;
+    if(v==='capture'){S.prev=S.view==='capture'?S.prev:S.view;S.form=null;S.view='capture';render();window.scrollTo(0,0);return;}
+    if(v==='repDaily')S.repDate=today();
+    go(v,(t.dataset.col||t.dataset.id)?{col:t.dataset.col,id:t.dataset.id}:null);return;
+  }
+  const a=t.dataset.act;
+  if(a==='capsave')return saveCapture();
+  if(a==='capclear'){readCapture();S.form.photo=null;S.form.photoPreview=null;render();return;}
+  if(a==='fixwording')return fixWording();
+  if(a==='closeobs')return closeObs(t.dataset.id);
+  if(a==='reopen'){const o=(S.data.obs||[]).find(function(r){return r.id===t.dataset.id;});if(o){const b=stripId(o);b.status='Open';delete b.closedAt;try{await writeDoc('obs',o.id,b);toast('Reopened.');}catch(err){toast('Could not reopen.');}}return;}
+  if(a==='delobs'||a==='delrec'){const id=t.dataset.id;if(S.confirmDel!==id){S.confirmDel=id;render();return;}S.confirmDel=null;try{await removeDoc(a==='delobs'?'obs':t.dataset.col,id);toast('Deleted.');go(a==='delobs'?'obs':(t.dataset.col==='permits'?'permits':'recList'),a==='delobs'?null:{col:t.dataset.col});}catch(err){toast('Could not delete.');}return;}
+  if(a==='newrec')return newRec(t.dataset.col);
+  if(a==='editrec')return editRec(t.dataset.col,t.dataset.id);
+  if(a==='cancelform'){const f=S.form;S.form=null;if(f&&f.id)go('recView',{col:f.col,id:f.id});else go(f&&f.col==='permits'?'permits':'recList',{col:f?f.col:''});return;}
+  if(a==='saverec')return saveRec();
+  if(a==='rmphoto'){if(S.form.kind==='zs')readZs();else readRecForm();S.form.draft[t.dataset.k].splice(+t.dataset.i,1);const box=document.getElementById('ph_'+t.dataset.k);if(box)box.innerHTML=photosInner(t.dataset.k,S.form.draft[t.dataset.k]);return;}
+  if(a==='permit'){const r=(S.data.permits||[]).find(function(x){return x.id===t.dataset.id;});if(!r)return;const b=stripId(r);b.status=t.dataset.s;if(b.status==='Approved'){b.approvedAt=new Date().toISOString();b.approvedBy=S.uid||'';}if(b.status==='Closed')b.closedAt=new Date().toISOString();try{await writeDoc('permits',r.id,b);toast('Permit '+b.status.toLowerCase()+'.');}catch(err){toast('Could not update the permit.');}return;}
+  if(a==='pdf')return makePdf(t.dataset.name,t);
+  if(a==='copytext'){const txt=t.dataset.text;try{await navigator.clipboard.writeText(txt);toast('Summary copied. Paste it into Gmail or WhatsApp.');}catch(err){toast('Copy is blocked here. Use the WhatsApp button instead.');}return;}
+  if(a==='savesettings')return saveSettings();
+  if(a==='addperson'){const st=readRoles();st.roles=st.roles||{};st.roles[t.dataset.id]={role:'officer',units:[S.unit],depts:[]};await putSettings(st);toast('Added. Set the role, then Save roles.');return;}
+  if(a==='rmperson'){const st=readRoles();delete st.roles[t.dataset.id];await putSettings(st);toast('Removed.');return;}
+  if(a==='saveroles'){await putSettings(readRoles());toast('Roles saved.');return;}
+  if(a==='backup')return backup();
+  if(a==='signout'){if(window.SBCStore)window.SBCStore.signOut();return;}
+  if(a==='dorestore')return doRestore();
+  if(a==='cancelrestore'){S.restore=null;render();return;}
+});
+/* File picking: one input that lives outside the re-rendered app, so a refresh while the picker is open cannot lose the photo */
+let pickCb=null;
+const picker=document.createElement('input');picker.type='file';picker.accept='image/*';picker.className='hidden-sr';picker.setAttribute('aria-hidden','true');picker.tabIndex=-1;
+document.body.appendChild(picker);
+picker.addEventListener('change',function(){const fs=Array.prototype.slice.call(picker.files||[]);const cb=pickCb;pickCb=null;picker.value='';if(fs.length&&cb)cb(fs);});
+function pickFile(opt,cb){
+  pickCb=cb;picker.multiple=!!opt.multiple;
+  if(opt.capture)picker.setAttribute('capture','environment');else picker.removeAttribute('capture');
+  picker.value='';
+  try{picker.click();}catch(err){toast('Photos cannot be picked in this view. Open the app in Chrome.');}
+  setTimeout(function(){if(pickCb===cb&&document.hasFocus())pickHint();},1500);
+}
+function pickHint(){toast('If the camera or gallery did not open, allow Camera and Photos for Chrome in the phone settings, then try again.');}
+async function onCapFile(file){if(!file||!S.form)return;readCapture();try{const b=await compress(file);S.form.photo=b;S.form.photoPreview=URL.createObjectURL(b);render();}catch(err){toast(err.message||'Could not read that photo.');}}
+async function onAfterFile(file,id){if(!file)return;const keep=(document.getElementById('closenote')||{}).value||'';try{const b=await compress(file);S.after={id:id,blob:b,preview:URL.createObjectURL(b)};render();requestAnimationFrame(function(){requestAnimationFrame(function(){const n=document.getElementById('closenote');if(n)n.value=keep;});});}catch(err){toast(err.message||'Could not read that photo.');}}
+async function onPhotos(files,k){
+  if(!S.form)return;if(S.form.kind==='zs')readZs();else readRecForm();
+  const box=document.getElementById('ph_'+k);if(box){const s=document.createElement('span');s.className='pill warn';s.textContent='Uploading '+files.length+'…';box.appendChild(s);}
+  for(const file of files){try{const b=await compress(file);const id=await uploadPhoto(b);S.form.draft[k]=(S.form.draft[k]||[]).concat([id]);}catch(err){toast(err&&err.code==='not_granted'?'Your role cannot add photos.':'A photo could not be added. Check the connection.');}}
+  const box2=document.getElementById('ph_'+k);if(box2)box2.innerHTML=photosInner(k,S.form.draft[k]);
+}
+document.addEventListener('keydown',function(e){if(e.key==='Enter'){const tr=e.target.closest&&e.target.closest('tr[data-go]');if(tr)tr.click();}});
+document.addEventListener('change',async function(e){
+  const el=e.target;
+  if(el.id==='capnative'){const f0=el.files&&el.files[0];if(f0)onCapFile(f0);return;}
+  if(el.id==='afternative'){const f1=el.files&&el.files[0];if(f1)onAfterFile(f1,el.dataset.id);return;}
+  if(el.id==='capphoto'||el.id==='capgallery'){const file=el.files&&el.files[0];if(!file)return;readCapture();try{const b=await compress(file);S.form.photo=b;S.form.photoPreview=URL.createObjectURL(b);render();}catch(err){toast(err.message||'Could not read that photo.');}return;}
+  if(el.id==='afterphoto'){const file=el.files&&el.files[0];if(!file)return;try{const b=await compress(file);S.after={id:el.dataset.id,blob:b,preview:URL.createObjectURL(b)};const keep=(document.getElementById('closenote')||{}).value||'';render();requestAnimationFrame(function(){requestAnimationFrame(function(){const n=document.getElementById('closenote');if(n)n.value=keep;});});}catch(err){toast(err.message||'Could not read that photo.');}return;}
+  if(el.dataset&&el.dataset.photok){
+    const k=el.dataset.photok;const files=Array.prototype.slice.call(el.files||[]);if(!files.length)return;if(S.form.kind==='zs')readZs();else readRecForm();
+    const box=document.getElementById('ph_'+k);if(box){const s=document.createElement('span');s.className='pill warn';s.textContent='Uploading '+files.length+'…';box.appendChild(s);}
+    for(const file of files){try{const b=await compress(file);const id=await uploadPhoto(b);S.form.draft[k]=(S.form.draft[k]||[]).concat([id]);}catch(err){toast(err&&err.code==='not_granted'?'Your role cannot add photos.':'A photo could not be added. Check the connection.');}}
+    const box2=document.getElementById('ph_'+k);if(box2)box2.innerHTML=photosInner(k,S.form.draft[k]);return;
+  }
+  if(el.id==='f_kind'&&S.form&&S.form.col==='permits'){readRecForm();S.form.draft.checks=[];render();return;}
+  if(el.id==='deptf'){S.deptFilter=el.value;render();return;}
+  if(el.id==='repdate'){S.repDate=el.value||today();render();return;}
+  if(el.id==='regmonth'){S.regMonth=el.value||today().slice(0,7);render();return;}
+  if(el.id==='restorefile'){const file=el.files&&el.files[0];if(!file)return;try{const json=JSON.parse(await file.text());let count=0;COLS.forEach(function(c){count+=((json.data||{})[c]||[]).length;});S.restore={json:json,name:file.name,count:count};render();}catch(err){toast('That file is not a Safety Tracker backup.');}return;}
+});
+async function toggleWalk(dept){
+  const key=today()+'_'+S.unit;const w=(S.data.walks||[]).find(function(r){return r.id===key;});
+  const done=(w&&w.done||[]).slice();const i=done.indexOf(dept);if(i>=0)done.splice(i,1);else done.push(dept);
+  try{await writeDoc('walks',key,{unit:S.unit,date:today(),done:done,by:S.uid||''});if(S.demo||!S.db)render();}catch(e){toast('Could not save the walk.');}
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  try{const sv=JSON.parse(localStorage.getItem('sbc_view')||'null');if(sv&&sv.v&&['recForm','capture'].indexOf(sv.v)<0){S.view=sv.v;S.arg=sv.arg;}}catch(e){}
+  if(S.view==='recView'&&!(S.arg&&S.arg.col&&REC[S.arg.col]))S.view='home';
+  if((S.view==='recList'||S.view==='repRegister')&&!(S.arg&&REC[S.arg.col]))S.view='home';
+  render();
+  const st=window.SBCStore;
+  if(!st||!st.configured){startDemo();return;}
+  if(!st.token()){S.needLogin=true;S.ready=true;render();return;}
+  st.onError(function(m){toast(m);});
+  st.onStatus(function(s){if(s==='signin'){S.needLogin=true;render();}else if(!S.form&&S.view!=='settings')render();});
+  const ok=await st.init();
+  if(!ok){S.needLogin=true;S.ready=true;render();return;}
+  S.db=st.db;S.assets=st.assets;S.user=st.user;S.dl=st.dl;S.sample=null;
+  try{const me=await S.user.me();S.uid=me.id;S.isOwner=me.isOwner;S.canEdit=me.canEdit;S.myName=me.name||'';}catch(e){}
+  S.db.doc('config/settings').onSnapshot(function(snap){
+    if(snap.exists){const d=snap.data();S.settings=Object.assign({},JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),JSON.parse(JSON.stringify(d)));}
+    S.ready=true;softRender();
+  },function(){S.ready=true;softRender();});
+  COLS.forEach(function(col){
+    S.db.collection(col).onSnapshot(function(snap){S.data[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});softRender();},function(){});
+  });
+  setTimeout(function(){S.ready=true;softRender();},4000);
+  flushQueue();
+}
+function startDemo(){S.demo=true;S.ready=true;render();}
+boot();
+})();
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+</body></html>
