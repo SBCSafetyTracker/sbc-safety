@@ -1243,7 +1243,7 @@ document.addEventListener('touchend',function(e){if(!swipe)return;const s=swipe;
 
 /* ---------- Statutory compliance: checklist of documents and records, soft + hard copy, renewal reminders ---------- */
 /* Categories 1-2: documents collected from authorities / agencies (scanned copy uploaded).
-   Categories 3-4: records the safety manager maintains. Items merged from the "SBC Statutory Compliance Checklist & Action Plan" sheet. */
+   Category 3: registers and forms the safety manager maintains. Own safety records already live in their own sections of the app. Items merged from the "SBC Statutory Compliance Checklist & Action Plan" sheet. */
 const COMP_CATS=[
   {id:'lic',n:1,title:'Licences and approvals',short:'Licences',who:'Collected from authorities – upload the scanned copy',
    items:[
@@ -1279,17 +1279,6 @@ const COMP_CATS=[
     ['committee','Safety committee minutes','Factories Act Sec 41G','Quarterly meeting','Form / update committee; keep minutes'],
     ['policy','Safety policy','Factories Act Sec 7A','Review yearly','Signed by directors; displayed in units'],
     ['emergency','On-site emergency plan','Factories Act / TN Rules','Review yearly','Contact list and assembly points']
-   ]},
-  {id:'own',n:4,title:'Own safety records',short:'Own records',who:'Maintained by the safety manager – kept in this app',
-   items:[
-    ['induction','Induction and training records','Internal','Ongoing','','trainings'],
-    ['drills','Mock drill records','Emergency plan / fire dept','Periodic (e.g. half-yearly)','','drills'],
-    ['permits','Work permits','Internal','Per job','','permits'],
-    ['observations','Daily observations','Internal','Daily','','obs'],
-    ['ppe','PPE issue records','Internal','Ongoing','','ppe'],
-    ['ext_insp','Fire extinguisher inspections','IS 2190','Monthly','','ext'],
-    ['incidents','Incident investigations','Internal','As and when','','incidents'],
-    ['contractors','Contractor records (induction, medical fitness, licences)','CLRA / internal','Per contractor','','visitors']
    ]}
 ];
 function compKey(uid,k){return (uid||S.unit)+'_'+k;}
