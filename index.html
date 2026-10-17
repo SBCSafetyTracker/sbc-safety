@@ -53,6 +53,9 @@ a{color:var(--brand)}
 .nav:hover{background:rgba(255,255,255,.1)}
 .nav[aria-current="page"]{background:var(--gold);color:var(--gold-ink);font-weight:600}
 .nav svg{flex:none}
+.nav .chev{margin-left:auto;font-size:13px;opacity:.85}
+.moregroup{display:flex;flex-direction:column;gap:2px;margin:2px 0 4px;padding-left:14px;border-left:2px solid rgba(255,255,255,.18);margin-left:20px}
+.nav.sub{min-height:38px;padding:8px 10px;font-size:14px}
 .side .who{margin-top:auto;border-top:1px solid rgba(255,255,255,.18);padding:14px 10px 0;font-size:13px}
 .side .who span{color:var(--brand-soft);display:block}
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -400,7 +403,7 @@ const S = {
   queue:[], blobs:{}
 };
 COLS.forEach(function(c){S.data[c]=[];});
-try{ const u=localStorage.getItem('sbc_unit'); if(u) S.unit=u; }catch(e){}
+try{ const u=localStorage.getItem('sbc_unit'); if(u) S.unit=u; S.moreOpen=localStorage.getItem('sbc_more')==='1'; }catch(e){}
 try{ const q=JSON.parse(localStorage.getItem('sbc_queue')||'[]'); if(Array.isArray(q)) S.queue=q; }catch(e){}
 
 /* ---------- helpers ---------- */
@@ -538,8 +541,15 @@ function side(){
   if(can('obs'))x+=navItem('obs','Observations','obs',s==='obs');
   if(can('write'))x+=navItem('permits','Permits','permits',s==='permits');
   if(can('reports'))x+=navItem('reports','Reports','reports',s==='reports');
-  if(can('write'))x+=navItem('records','Records','records',s==='records');
-  if(can('settings'))x+=navItem('settings','Settings','settings',s==='settings');
+  if(can('write'))x+=navItem('records','Records','records',S.view==='records');
+  const subs=[];
+  if(can('write')){subs.push({go:'zs',label:'2S zone score',icon:'records',cur:S.view==='zs'||S.view==='zsForm'});RECORD_ORDER.forEach(function(c){subs.push({go:'recList',col:c,label:REC[c].label,icon:REC[c].icon,cur:['recList','recView','recForm','repRegister'].indexOf(S.view)>=0&&S.arg&&S.arg.col===c});});}
+  if(can('settings'))subs.push({go:'settings',label:'Settings',icon:'settings',cur:S.view==='settings'});
+  if(subs.length){
+    const anyCur=subs.some(function(u){return u.cur;});const open=S.moreOpen||anyCur;
+    x+='<button type="button" class="nav morebtn" data-act="togglemore" aria-expanded="'+open+'">'+ic('more')+'<span>More</span><span class="chev" aria-hidden="true">'+(open?'▴':'▾')+'</span></button>';
+    if(open)x+='<div class="moregroup">'+subs.map(function(u){return '<button type="button" class="nav sub" data-go="'+u.go+'"'+(u.col?' data-col="'+u.col+'"':'')+(u.cur?' aria-current="page"':'')+'>'+ic(u.icon,18)+h(u.label)+'</button>';}).join('')+'</div>';
+  }
   x+='<div class="who"><b>'+h(S.myName||'You')+'</b><span>'+h(ROLE_LABEL[myRole().role])+'</span></div></nav>';
   return x;
 }
@@ -674,9 +684,8 @@ function vCapture(){
   const d=f.draft;
   let x=head('New observation',unitName()+' · saved on the phone first, sent when online','<button type="button" class="btn ghost" data-go="'+(S.prev||'home')+'">Cancel</button>');
   x+='<div class="content" style="max-width:760px">'+banners()+'<form id="capform" class="form" novalidate>';
-  x+='<div class="field wide"><button type="button" class="bigcam" data-act="pickcam">'+(f.photoPreview?'<img src="'+f.photoPreview+'" alt="Photo taken">':'')+ic('cam',42)+'<span>Tap to take photo</span><small>opens the camera</small></button>';
-  x+='<div class="field" style="margin-top:4px"><label for="capnative" style="font-weight:400;font-size:13px;color:var(--muted)">If the big button does not open the camera, tap here instead:</label><input type="file" accept="image/*" id="capnative" class="in" style="padding:10px"></div>';
-  x+='<div class="btnrow"><button type="button" class="btn small" data-act="pickgal">Choose from gallery</button>'+(f.photoPreview?'<button type="button" class="btn small ghost" data-act="capclear">Remove photo</button>':'')+'</div></div>';
+  x+='<div class="field wide"><button type="button" class="bigcam" data-act="pickgal">'+(f.photoPreview?'<img src="'+f.photoPreview+'" alt="Photo chosen">':'')+ic('cam',42)+'<span>Choose from gallery</span><small>or take a new photo with the camera</small></button>';
+  x+='<div class="btnrow">'+(f.photoPreview?'<button type="button" class="btn small ghost" data-act="capclear">Remove photo</button>':'')+'</div></div>';
   x+='<div class="field wide"><span class="lab">Department</span><div class="chips" role="group" aria-label="Department">'+unitObj().depts.map(function(dp){return '<button type="button" class="chip" data-capdept="'+h(dp)+'" aria-pressed="'+(d.dept===dp)+'">'+h(dp)+'</button>';}).join('')+'</div></div>';
   x+='<div class="field wide"><span class="lab">Type</span><div class="chips" role="group" aria-label="Type">'+OBS_KINDS.map(function(k){return '<button type="button" class="chip" data-capkind="'+h(k)+'" aria-pressed="'+(d.kind===k)+'">'+h(k)+'</button>';}).join('')+'</div></div>';
   x+='<div class="field wide"><label for="capnote">What did you see?</label><textarea class="in" id="capnote" placeholder="Short note – the phone keyboard\'s mic button works for speaking">'+h(d.note)+'</textarea>';
@@ -741,7 +750,7 @@ function vObsDetail(){
   x+='<div class="content" style="max-width:900px"><div class="cols2"><div class="panel"><header><h2>Before</h2>'+pillFor(st)+'</header>'+(o.photo?'<img src="'+photoUrl(o.photo)+'" alt="Before photo" style="width:100%;max-height:420px;object-fit:cover;display:block">':'<div class="empty">No photo</div>')+'<div class="body" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0;overflow-wrap:anywhere">'+h(o.note||'')+'</p>'+(o.action?'<p style="margin:0;overflow-wrap:anywhere"><b>Action needed:</b> '+h(o.action)+'</p>':'')+'<small style="color:var(--muted)">'+(o.hazard?h(o.hazard)+' · ':'')+(o.risk?h(o.risk)+' risk · ':'')+'Target '+(o.target?fmtD(o.target):'not set')+(o.no?' · '+h(o.no):'')+'</small></div></div>';
   x+='<div class="panel"><header><h2>After</h2></header>';
   if(o.status==='Closed'){x+=(o.afterPhoto?'<img src="'+photoUrl(o.afterPhoto)+'" alt="After photo" style="width:100%;max-height:420px;object-fit:cover;display:block">':'<div class="empty">Closed without an after photo</div>')+'<div class="body"><p style="margin:0">'+h(o.closeNote||'Closed')+'</p><small style="color:var(--muted)">Closed '+fmtD((o.closedAt||'').slice(0,10))+'</small>'+(can('closeObs')?'<div class="btnrow" style="margin-top:10px"><button type="button" class="btn small" data-act="reopen" data-id="'+h(o.id)+'">Reopen</button></div>':'')+'</div>';}
-  else if(can('closeObs')){x+='<div class="body" style="display:flex;flex-direction:column;gap:12px"><button type="button" class="bigcam" style="min-height:150px" data-act="pickafter" data-id="'+h(o.id)+'">'+(S.after&&S.after.id===o.id&&S.after.preview?'<img src="'+S.after.preview+'" alt="After photo">':'')+ic('cam',36)+'<span>Add after photo</span></button><label for="afternative" style="font-size:13px;color:var(--muted)">If the button does not open the camera, tap here instead:</label><input type="file" accept="image/*" id="afternative" data-id="'+h(o.id)+'" class="in" style="padding:10px"><button type="button" class="btn small" data-act="pickaftergal" data-id="'+h(o.id)+'">Choose from gallery</button><div class="field"><label for="closenote">What was done</label><input class="in" id="closenote" placeholder="e.g. Guard fixed, area cleaned"></div><button type="button" class="btn primary" data-act="closeobs" data-id="'+h(o.id)+'">Close observation</button></div>';}
+  else if(can('closeObs')){x+='<div class="body" style="display:flex;flex-direction:column;gap:12px"><button type="button" class="bigcam" style="min-height:150px" data-act="pickaftergal" data-id="'+h(o.id)+'">'+(S.after&&S.after.id===o.id&&S.after.preview?'<img src="'+S.after.preview+'" alt="After photo">':'')+ic('cam',36)+'<span>Add after photo – choose from gallery</span><small>or take a new photo with the camera</small></button><div class="field"><label for="closenote">What was done</label><input class="in" id="closenote" placeholder="e.g. Guard fixed, area cleaned"></div><button type="button" class="btn primary" data-act="closeobs" data-id="'+h(o.id)+'">Close observation</button></div>';}
   else x+='<div class="empty">Still open.</div>';
   x+='</div></div>';
   if(can('write'))x+='<div class="btnrow"><button type="button" class="btn danger small" data-act="delobs" data-id="'+h(o.id)+'">'+(S.confirmDel===o.id?'Tap again to delete':'Delete observation')+'</button></div>';
@@ -794,7 +803,7 @@ function fieldHtml(f,d){
   return '<div class="field'+(f.wide?' wide':'')+'">'+inner+'</div>';
 }
 function photosInner(k,v){
-  return (v||[]).map(function(pid,i){return '<span class="p"><img src="'+photoUrl(pid)+'" alt="Photo '+(i+1)+'"><button type="button" class="x" data-act="rmphoto" data-k="'+k+'" data-i="'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></span>';}).join('')+'<button type="button" class="btn" data-act="pickphotos" data-k="'+k+'">'+ic('cam',18)+'Add photos</button><input type="file" accept="image/*" multiple data-photok="'+k+'" aria-label="Add photos (alternative)" class="in" style="padding:10px;max-width:320px">';
+  return (v||[]).map(function(pid,i){return '<span class="p"><img src="'+photoUrl(pid)+'" alt="Photo '+(i+1)+'"><button type="button" class="x" data-act="rmphoto" data-k="'+k+'" data-i="'+i+'" aria-label="Remove photo '+(i+1)+'">×</button></span>';}).join('')+'<button type="button" class="btn" data-act="pickphotos" data-k="'+k+'">'+ic('cam',18)+'Choose from gallery</button>';
 }
 function vRecForm(){
   const f=S.form;if(!f||f.kind!=='rec')return head('Nothing to edit','')+'<div class="content"></div>';
@@ -1122,8 +1131,11 @@ async function doRestore(){
   const r=S.restore;if(!r)return;S.restore=null;let n=0;
   try{
     if(r.json.settings)await putSettings(Object.assign({},DEFAULT_SETTINGS,r.json.settings));
+    const pics=r.json.photos||{};const pk=Object.keys(pics);let pc=0;
+    for(const pid of pk){try{const b=await dataURLToBlob(pics[pid]);if(window.SBCStore&&window.SBCStore.importPhoto){await window.SBCStore.importPhoto(pid,b);}S.blobs[pid]=URL.createObjectURL(b);pc++;}catch(err){}}
     for(const c of COLS){const rows=(r.json.data||{})[c]||[];for(const row of rows){if(!row||!row.id)continue;await writeDoc(c,String(row.id),stripId(row));n++;}}
-    toast('Restored '+n+' records.');
+    if(window.SBCStore)window.SBCStore.sync();
+    toast('Restored '+n+' records'+(pc?' and '+pc+' photos – photos upload to Google Drive in the background, keep the app open a few minutes':'')+'.');
   }catch(e){toast('Restore stopped after '+n+' records. Try again.');}
   render();
 }
@@ -1180,6 +1192,7 @@ document.addEventListener('click',async function(e){
   if(a==='rmperson'){const st=readRoles();delete st.roles[t.dataset.id];await putSettings(st);toast('Removed.');return;}
   if(a==='saveroles'){await putSettings(readRoles());toast('Roles saved.');return;}
   if(a==='backup')return backup();
+  if(a==='togglemore'){S.moreOpen=!S.moreOpen;try{localStorage.setItem('sbc_more',S.moreOpen?'1':'0');}catch(err){}render();return;}
   if(a==='signout'){if(window.SBCStore)window.SBCStore.signOut();return;}
   if(a==='dorestore')return doRestore();
   if(a==='cancelrestore'){S.restore=null;render();return;}

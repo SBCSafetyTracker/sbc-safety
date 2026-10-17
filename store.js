@@ -195,6 +195,13 @@
       return { id: pid, url: purl[pid] };
     }
   };
+  async function importPhoto(pid, blob) {
+    pid = String(pid).replace(/[^A-Za-z0-9_-]/g, '');
+    if (!pid) return;
+    await kv.set('p:' + pid, blob);
+    outbox.push({ k: 'p', pid: pid }); await persistOutbox();
+    purl[pid] = URL.createObjectURL(blob);
+  }
   function nameOf(id) { return String(id || '').split('@')[0].replace(/[._]/g, ' '); }
   const user = {
     me: async function () { return { id: me.email, isOwner: !!me.isOwner, canEdit: true, name: nameOf(me.email), role: me.role }; },
@@ -240,7 +247,7 @@
   }
 
   window.SBCStore = {
-    token: token, init: init, db: db, assets: assets, user: user, dl: dl, photo: photo, sync: sync, signOut: signOut,
+    token: token, init: init, db: db, assets: assets, importPhoto: importPhoto, user: user, dl: dl, photo: photo, sync: sync, signOut: signOut,
     loginUrl: CFG.login || '', configured: !!(CFG.api && CFG.login),
     pending: function () { return outbox.length; },
     onError: function (cb) { errorCb = cb; }, onStatus: function (cb) { statusCb = cb; }
