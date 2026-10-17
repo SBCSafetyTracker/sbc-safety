@@ -231,6 +231,29 @@ table.list tr.click{cursor:pointer}table.list tr.click:hover td{background:var(-
 .xcheck{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:10px}
 .xcheck .in{margin:6px 0}
 
+/* PPE, visitors, first aid */
+.xph.sm{height:150px}
+.pname{display:block;font-size:17px}
+.pnums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;border-top:1px solid var(--line);padding-top:10px;text-align:center}
+.pnums span{display:block;font-size:11.5px;color:var(--muted)}.pnums b{font-size:20px;font-variant-numeric:tabular-nums}
+.psizes{display:flex;flex-wrap:wrap;gap:6px}
+.psizes span{display:flex;flex-direction:column;align-items:center;min-width:44px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;font-weight:700;font-variant-numeric:tabular-nums}
+.psizes span small{font-weight:400;color:var(--muted);font-size:11px}
+.psizes span.zero{border-color:var(--bad);color:var(--bad);background:var(--bad-bg)}
+.pform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:6px 0}
+.pform label{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:500}.pform label.w{grid-column:1/-1}
+.pform .in{min-height:42px}
+.xcard.warnb{border-color:#c27c0e;box-shadow:0 0 0 1px #c27c0e}
+.vrow{display:flex;gap:12px;padding:12px 14px 0}
+.vph{flex:none;width:76px;height:76px;border-radius:12px;overflow:hidden;border:0;padding:0;background:var(--ph);cursor:pointer}
+.vph img{width:100%;height:100%;object-fit:cover;display:block}.vph .noimg{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)}
+.vmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.vmeta{display:flex;flex-direction:column;font-size:13px;color:var(--muted)}
+.vtags{display:flex;flex-wrap:wrap;gap:6px}
+.vtags .pill{white-space:normal}
+.vcon{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border-top:1px solid var(--line);padding-top:8px}
+.vcon span{display:block;font-size:11.5px;color:var(--muted)}.vcon b{font-size:13.5px;font-weight:600;overflow-wrap:anywhere}.vcon b.bad{color:var(--bad)}
+
 /* back arrow, name block */
 .pagehead .ttl{display:flex;align-items:center;gap:10px;min-width:0}
 .backarrow{flex:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
@@ -412,6 +435,8 @@ const CHECKS = {
   'Electrical':['Supply isolated and locked','Tested dead with tester','Earthing done','Insulated tools and gloves used','Authorised electrician only'],
   'Working at height':['Full body harness with double lanyard','Anchor point checked','Ladder or scaffold inspected and tagged','Area below barricaded','Fit-to-work checked']
 };
+const PPE_STD=[['Safety shoes','6, 7, 8, 9, 10, 11'],['Safety helmet',''],['Cotton gloves',''],['Leather gloves',''],['Heat-resistant gloves',''],['Safety goggles',''],['Face shield',''],['Ear plugs',''],['Dust mask',''],['Furnace apron (aluminised)',''],['Reflective jacket','M, L, XL, XXL']];
+const GATE_PPE=['Helmet','Safety shoes','Goggles','Gloves','Ear plugs','Reflective jacket'];
 const REC = {
   permits:{label:'Permits', one:'Permit', code:'WP', report:'WORK PERMIT', icon:'permits', sub:'Hot work · LOTO · Electrical · Height',
     fields:[
@@ -489,28 +514,35 @@ const REC = {
       {k:'remarks',t:'text',l:'Remarks',wide:1}
     ],
     cols:[['tag','ID'],['location','Location'],['type','Type',function(r){return h([r.type,r.capacity].filter(Boolean).join(' · '));}],['checkedOn','Last check',function(r){return fmtD(r.checkedOn);}],['condition','Condition',function(r){return extCondPill(r);}],['refillDue','Refill',function(r){return duePill(r.refillDue);}]]},
-  ppe:{label:'PPE stock', one:'PPE item', code:'PP', report:'PPE STOCK RECORD', icon:'ppe', sub:'Simple count and issue', register:1,
+  ppe:{label:'PPE stock', one:'PPE item', code:'PP', report:'PPE STOCK RECORD', icon:'ppe', sub:'Stock, receive, issue log', register:1,
     fields:[
-      {k:'item',t:'text',l:'Item',req:1},
-      {k:'size',t:'text',l:'Size / type'},
-      {k:'stock',t:'number',l:'In stock'},
-      {k:'minLevel',t:'number',l:'Re-order level'},
-      {k:'issued',t:'number',l:'Issued this month'},
-      {k:'remarks',t:'text',l:'Remarks'}
+      {k:'photos',t:'photos',l:'Photo',wide:1},
+      {k:'item',t:'text',l:'PPE item',req:1,list:PPE_STD.map(function(p){return p[0];}),ph:'e.g. Safety shoes'},
+      {k:'spec',t:'text',l:'Type / standard',ph:'e.g. Steel toe, IS 15298'},
+      {k:'sizes',t:'text',l:'Sizes (comma separated)',ph:'e.g. 6, 7, 8, 9, 10, 11 – leave empty if one size'},
+      {k:'minLevel',t:'number',l:'Minimum stock (re-order level)'},
+      {k:'remarks',t:'text',l:'Remarks / supplier',wide:1}
     ],
-    cols:[['item','Item'],['size','Size'],['stock','In stock'],['minLevel','Re-order at'],['st','Status',function(r){return lowStock(r)?'<span class="pill bad">Low</span>':'<span class="pill ok">OK</span>';}]]},
-  visitors:{label:'Visitors & contractors', one:'Visitor / contractor', code:'IR', report:'OHSE INDUCTION RECORD SHEET', icon:'visitors', sub:'Induction and medical fitness', register:1, dated:1,
+    cols:[['item','Item'],['sizes','Sizes'],['stock','In stock',function(r){return String(ppeTotal(r));}],['minLevel','Re-order at'],['st','Status',function(r){return lowStock(r)?'<span class="pill bad">Low</span>':'<span class="pill ok">OK</span>';}]]},
+  visitors:{label:'Visitors & contractors', one:'Visitor / contractor', code:'IR', report:'VISITOR & CONTRACTOR ENTRY REGISTER', icon:'visitors', sub:'Gate entry, induction, PPE, permits', register:1, dated:1,
     fields:[
-      {k:'date',t:'date',l:'Date',req:1},
-      {k:'kind',t:'select',l:'Type',o:['Visitor','Contractor worker']},
+      {k:'photos',t:'photos',l:'Photo (person / ID card)',wide:1},
+      {k:'kind',t:'select',l:'Type',o:['Visitor','Contractor worker','Contractor supervisor','Vendor / driver']},
       {k:'name',t:'text',l:'Name',req:1},
       {k:'company',t:'text',l:'Company'},
-      {k:'purpose',t:'text',l:'Purpose / job'},
-      {k:'induction',t:'select',l:'Safety induction',o:['Done','Not done']},
-      {k:'medical',t:'select',l:'Medical fitness',o:['Fit','Not fit','Not required']},
-      {k:'medicalTill',t:'date',l:'Fitness valid till'}
+      {k:'phone',t:'tel',l:'Phone'},
+      {k:'meeting',t:'text',l:'Meeting / reporting to',ph:'Name or department'},
+      {k:'date',t:'date',l:'Date',req:1},
+      {k:'timeIn',t:'time',l:'Time in'},
+      {k:'timeOut',t:'time',l:'Time out'},
+      {k:'induction',t:'select',l:'Safety induction given',o:['Done','Not done']},
+      {k:'ppeGiven',t:'checks',l:'PPE given at the gate',wide:1,opts:function(){return GATE_PPE;}},
+      {k:'workType',t:'text',l:'Type of work',ph:'e.g. Welding, roof sheet work',show:isContractor},
+      {k:'permitNo',t:'text',l:'Work permit no.',show:isContractor},
+      {k:'medical',t:'select',l:'Medical fitness',o:['Fit','Not fit','Not checked'],show:isContractor},
+      {k:'medicalTill',t:'date',l:'Fitness valid till',show:isContractor}
     ],
-    cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['company','Company'],['kind','Type'],['induction','Induction',function(r){return r.induction==='Done'?'<span class="pill ok">Done</span>':'<span class="pill warn">'+h(r.induction||'Not done')+'</span>';}]]},
+    cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['company','Company'],['kind','Type'],['timeIn','In / out',function(r){return h((r.timeIn||'')+(r.timeOut?' – '+r.timeOut:''));}],['induction','Induction',function(r){return r.induction==='Done'?'<span class="pill ok">Done</span>':'<span class="pill warn">'+h(r.induction||'Not done')+'</span>';}]]},
   incidents:{label:'Incidents', one:'Incident', code:'IN', report:'INCIDENT INVESTIGATION REPORT', icon:'incidents', sub:'Investigation and actions', dated:1,
     fields:[
       {k:'date',t:'date',l:'Date',req:1},
@@ -526,19 +558,22 @@ const REC = {
       {k:'photos',t:'photos',l:'Photos',wide:1}
     ],
     cols:[['date','Date',function(r){return fmtD(r.date);}],['kind','Type'],['dept','Department'],['status','Status',function(r){return pillFor(r.status);}]]},
-  firstaid:{label:'First aid', one:'First aid case', code:'FA', report:'FIRST AID RECORD', icon:'firstaid', sub:'Cases treated', register:1, dated:1,
+  firstaid:{label:'First aid', one:'First aid case', code:'FA', report:'FIRST AID RECORD', icon:'firstaid', sub:'Cases treated, with photos', register:1, dated:1,
     fields:[
+      {k:'photos',t:'photos',l:'Photos (injury / place)',wide:1},
       {k:'date',t:'date',l:'Date',req:1},
       {k:'time',t:'time',l:'Time'},
       {k:'name',t:'text',l:'Name',req:1},
       {k:'emp',t:'text',l:'Emp ID'},
       {k:'dept',t:'dept',l:'Department'},
-      {k:'injury',t:'text',l:'Injury / complaint'},
-      {k:'treatment',t:'text',l:'Treatment given'},
-      {k:'givenBy',t:'text',l:'Given by'},
-      {k:'referred',t:'select',l:'Referred to hospital',o:['No','Yes']}
+      {k:'injury',t:'text',l:'Injury / complaint',ph:'e.g. Minor burn on left hand'},
+      {k:'how',t:'textarea',l:'What happened',wide:1},
+      {k:'treatment',t:'text',l:'Treatment given',ph:'e.g. Burn gel and dressing'},
+      {k:'givenBy',t:'text',l:'Given by (first aider)'},
+      {k:'outcome',t:'select',l:'After treatment',o:['Back to work','Rested, then back to work','Sent home','Sent to hospital']},
+      {k:'hospital',t:'text',l:'Hospital name',show:function(d){return d.outcome==='Sent to hospital';}}
     ],
-    cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['dept','Department'],['injury','Injury'],['referred','Hospital']]}
+    cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['dept','Department'],['injury','Injury'],['outcome','After treatment',function(r){return faPill(r);}]]}
 };
 const RECORD_ORDER = ['trainings','drills','certs','ext','ppe','visitors','incidents','firstaid'];
 const COLS = ['obs','walks','zs','comp','tcal'].concat(Object.keys(REC));
@@ -703,7 +738,7 @@ function paint(){
   if(v==='settings')wireSettings();
 }
 function navItem(v,label,icon,cur){return '<button type="button" class="nav" data-go="'+v+'"'+(cur?' aria-current="page"':'')+'>'+ic(icon)+h(label)+'</button>';}
-function section(){const v=S.view;if(v==='obs'||v==='obsDetail')return 'obs';if(v==='permits'||(S.arg&&S.arg.col==='permits'))return 'permits';if(v.indexOf('rep')===0||v==='reports')return 'reports';if(v==='records'||v==='recList'||v==='recView'||v==='recForm'||v==='zs'||v==='zsForm'||v==='comp'||v==='compItem'||v==='tcal')return 'records';return v;}
+function section(){const v=S.view;if(v==='obs'||v==='obsDetail')return 'obs';if(v==='permits'||(S.arg&&S.arg.col==='permits'))return 'permits';if(v.indexOf('rep')===0||v==='reports')return 'reports';if(v==='records'||v==='recList'||v==='recView'||v==='recForm'||v==='zs'||v==='zsForm'||v==='comp'||v==='compItem'||v==='tcal'||v==='ppeLog')return 'records';return v;}
 function side(){
   const s=section();let x='<nav class="side" aria-label="Main menu"><div class="brandblock"><b>'+h(S.settings.company)+'</b><span>OHSE · Safety Tracker</span></div>';
   x+=navItem('home','Home','home',s==='home');
@@ -779,6 +814,7 @@ function viewHtml(v){
     case 'comp':return vComp();
     case 'compItem':return vCompItem();
     case 'tcal':return vTcal();
+    case 'ppeLog':return vPpeLog();
     case 'settings':return vSettings();
     case 'more':return vMore();
   }
@@ -827,7 +863,7 @@ function dueItems(){
     list('ext').forEach(function(e){const d=daysTo(e.refillDue);if(d!=null&&d<=30)out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – '+(e.location||''),sub:'Refill due',pill:duePill(e.refillDue),rank:d<0?0:2});if(extCond(e)==='Needs attention')out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||''),sub:e.location||'',pill:'<span class="pill bad">Needs attention</span>',rank:1});});
     list('ext').forEach(function(e){const d=daysTo(e.hptDue);if(d!=null&&d<=30)out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – hydro test',sub:e.location||'',pill:duePill(e.hptDue),rank:d<0?0:2});});
     (function(){const ex=list('ext');const left=ex.filter(function(e){return !extCheckedThisMonth(e);}).length;if(ex.length&&left&&new Date().getDate()>=20)out.push({go:'recList',col:'ext',title:left+' extinguisher'+(left>1?'s':'')+' not checked this month',sub:'Monthly check',pill:'<span class="pill warn">Check</span>',rank:2});})();
-    list('ppe').forEach(function(p){if(lowStock(p))out.push({go:'recView',col:'ppe',id:p.id,title:p.item+(p.size?' – '+p.size:''),sub:'Stock '+p.stock+', re-order at '+p.minLevel,pill:'<span class="pill bad">Low stock</span>',rank:2});});
+    list('ppe').forEach(function(p){if(lowStock(p))out.push({go:'recView',col:'ppe',id:p.id,title:p.item+(p.size?' – '+p.size:''),sub:'Stock '+ppeTotal(p)+', re-order at '+p.minLevel,pill:'<span class="pill bad">Low stock</span>',rank:2});});
   }
   compDue().forEach(function(c){out.push(c);});
   planExtras().forEach(function(c){out.push(c);});
@@ -1807,6 +1843,12 @@ async function extClick(t){
   switch(a){
     case 'setrisk':setRisk(t.dataset.r);return true;
     case 'extmode':S.extMode=t.dataset.m;render();return true;
+    case 'cardmode':S.cardMode=S.cardMode||{};S.cardMode[t.dataset.col]=t.dataset.m;render();return true;
+    case 'ppemove':S.ppeMove={id:t.dataset.id,kind:t.dataset.k};render();return true;
+    case 'ppemovecancel':S.ppeMove=null;render();return true;
+    case 'ppemovesave':ppeMoveSave(t.dataset.id);return true;
+    case 'ppeseed':ppeSeed();return true;
+    case 'visout':visOut(t.dataset.id);return true;
     case 'extcheck':S.extCheck=t.dataset.id;render();return true;
     case 'extcheckcancel':S.extCheck=null;render();return true;
     case 'extchecksave':extCheckSave(t.dataset.id);return true;
@@ -1863,6 +1905,97 @@ async function extCheckSave(id){
   try{await writeDoc('ext',id,b);S.extCheck=null;toast(b.condition==='OK'?'Check saved – all OK.':'Check saved – needs attention.');render();}catch(e){toast('Could not save the check.');}
 }
 
+
+/* ---------- PPE stock: sizes, receive / issue moves, issue log ---------- */
+function ppeSizes(r){return String(r.sizes||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
+function ppeMoves(r){return Array.isArray(r.moves)?r.moves:[];}
+function ppeOpening(r){return r.stock!=null&&r.stock!==''&&!r.moves?Number(r.stock)||0:Number(r.opening)||0;}
+function ppeBal(r,size){let n=size==null||size===''?ppeOpening(r):0;ppeMoves(r).forEach(function(m){if(size!=null&&(m.size||'')!==size)return;n+=(m.kind==='in'?1:-1)*(Number(m.qty)||0);});return n;}
+function ppeTotal(r){let n=ppeOpening(r);ppeMoves(r).forEach(function(m){n+=(m.kind==='in'?1:-1)*(Number(m.qty)||0);});return n;}
+function ppeMonth(r,kind,m){m=m||today().slice(0,7);return ppeMoves(r).filter(function(x){return x.kind===kind&&String(x.date||'').slice(0,7)===m;}).reduce(function(a,x){return a+(Number(x.qty)||0);},0);}
+function lowStock(r){return r.minLevel!=null&&r.minLevel!==''&&ppeTotal(r)<=Number(r.minLevel);}
+function ppeCard(r){
+  const ph=(r.photos||[])[0];const sz=ppeSizes(r);const low=lowStock(r);const mv=S.ppeMove&&S.ppeMove.id===r.id?S.ppeMove:null;const edit=can('write');
+  let x='<article class="xcard'+(low?' bad':'')+'">';
+  x+='<button type="button" class="xph sm" data-go="recView" data-col="ppe" data-id="'+h(r.id)+'" aria-label="Open '+h(r.item)+'">'+(ph?'<img src="'+photoUrl(ph)+'" alt="">':'<span class="noimg">'+ic('ppe',30)+'<small>Add a photo</small></span>')+'</button>';
+  x+='<div class="xbody"><div class="xtop"><div><b class="pname">'+h(r.item||'—')+'</b><span class="xloc">'+h(r.spec||'')+'</span></div>'+(low?'<span class="pill bad">Re-order</span>':'<span class="pill ok">OK</span>')+'</div>';
+  x+='<div class="pnums"><div><span>In stock</span><b>'+ppeTotal(r)+'</b></div><div><span>Received '+MON[+today().slice(5,7)-1]+'</span><b>'+ppeMonth(r,'in')+'</b></div><div><span>Issued '+MON[+today().slice(5,7)-1]+'</span><b>'+ppeMonth(r,'out')+'</b></div><div><span>Minimum</span><b>'+(r.minLevel===''||r.minLevel==null?'—':h(r.minLevel))+'</b></div></div>';
+  if(sz.length)x+='<div class="psizes">'+sz.map(function(z){const b=ppeBal(r,z);return '<span class="'+(b<=0?'zero':'')+'"><small>'+h(z)+'</small>'+b+'</span>';}).join('')+'</div>';
+  if(mv){
+    x+='<div class="xcheck"><b>'+(mv.kind==='in'?'Receive stock':'Issue to a person')+'</b><div class="pform">'+(sz.length?'<label>Size<select class="in" id="pm_size">'+sz.map(function(z){return '<option>'+h(z)+'</option>';}).join('')+'</select></label>':'')+'<label>Qty<input class="in" id="pm_qty" type="number" inputmode="numeric" min="1" value="1"></label>'+(mv.kind==='out'?'<label class="w">Name<input class="in" id="pm_name" placeholder="Worker name"></label><label>Emp ID<input class="in" id="pm_emp"></label><label class="w">Department<select class="in" id="pm_dept"><option value="">—</option>'+unitObj(r.unit).depts.map(function(d){return '<option>'+h(d)+'</option>';}).join('')+'</select></label>':'<label class="w">Supplier / bill no.<input class="in" id="pm_ref" placeholder="Optional"></label>')+'<label>Date<input class="in" id="pm_date" type="date" value="'+today()+'"></label></div><div class="btnrow"><button type="button" class="btn ghost small" data-act="ppemovecancel">Cancel</button><button type="button" class="btn primary small" data-act="ppemovesave" data-id="'+h(r.id)+'">Save</button></div></div>';
+  }else if(edit){
+    x+='<div class="xfoot"><small>'+(ppeMoves(r).length?'Last: '+(function(){const m=ppeMoves(r)[ppeMoves(r).length-1];return (m.kind==='in'?'received ':'issued ')+m.qty+(m.size?' ('+m.size+')':'')+(m.name?' to '+m.name:'')+' · '+fmtD(m.date);})():'No movements yet')+'</small><div class="btnrow"><button type="button" class="btn small" data-act="ppemove" data-k="in" data-id="'+h(r.id)+'">Receive</button><button type="button" class="btn small primary" data-act="ppemove" data-k="out" data-id="'+h(r.id)+'">Issue</button></div></div>';
+  }
+  return x+'</div></article>';
+}
+function ppeList(rows){
+  const low=rows.filter(lowStock).length;const iss=rows.reduce(function(a,r){return a+ppeMonth(r,'out');},0);
+  let x='<section class="tiles"><div class="tile" style="cursor:default"><div class="l">PPE items</div><div class="n">'+rows.length+'</div></div><div class="tile'+(low?' bad':'')+'" style="cursor:default"><div class="l">Below minimum – re-order</div><div class="n">'+low+'</div></div><button type="button" class="tile" data-go="ppeLog"><div class="l">Issued this month · open issue log</div><div class="n">'+iss+'</div></button></section>';
+  if(rows.length<4&&can('write'))x+='<div class="banner info">Add the usual PPE list in one tap: safety shoes, helmet, cotton / leather / heat-resistant gloves, goggles, face shield, ear plugs, dust mask, furnace apron, reflective jacket. <button type="button" class="btn small" data-act="ppeseed" style="margin-left:6px">Add standard list</button></div>';
+  return x+'<div class="xgrid">'+rows.slice().sort(function(a,b){return (lowStock(b)?1:0)-(lowStock(a)?1:0)||String(a.item).localeCompare(String(b.item));}).map(ppeCard).join('')+'</div>';
+}
+async function ppeMoveSave(id){
+  const r=(S.data.ppe||[]).find(function(x){return x.id===id;});if(!r)return;
+  const v=function(k){const e=document.getElementById(k);return e?e.value.trim():'';};
+  const qty=Number(v('pm_qty'));if(!(qty>0)){toast('Enter the quantity.');return;}
+  const m={kind:S.ppeMove.kind,qty:qty,size:v('pm_size'),date:v('pm_date')||today(),by:S.myName||S.uid||''};
+  if(m.kind==='out'){m.name=v('pm_name');m.emp=v('pm_emp');m.dept=v('pm_dept');if(!m.name){toast('Enter the person\'s name.');return;}if(qty>ppeBal(r,m.size||null)+(m.size?0:0)&&ppeBal(r,m.size||null)>=0&&qty>ppeTotal(r)){toast('Only '+ppeTotal(r)+' in stock.');return;}}
+  else m.ref=v('pm_ref');
+  const b=stripId(r);if(!Array.isArray(b.moves)){b.opening=ppeOpening(r);b.moves=[];}b.moves=b.moves.concat([m]);delete b.stock;delete b.issued;b.updatedAt=new Date().toISOString();
+  try{await writeDoc('ppe',id,b);S.ppeMove=null;toast(m.kind==='in'?'Stock received.':'Issued to '+m.name+'.');render();}catch(e){toast('Could not save.');}
+}
+async function ppeSeed(){
+  const have=list('ppe').map(function(r){return String(r.item||'').toLowerCase();});let n=0;
+  for(const p of PPE_STD){if(have.indexOf(p[0].toLowerCase())>=0)continue;await writeDoc('ppe',rid(),{unit:S.unit,item:p[0],sizes:p[1],minLevel:10,opening:0,moves:[],photos:[],createdAt:new Date().toISOString(),by:S.uid||''});n++;}
+  toast(n+' PPE items added. Use Receive to enter the stock you have now.');render();
+}
+function vPpeLog(){
+  const month=S.regMonth||today().slice(0,7);const rows=[];
+  list('ppe').forEach(function(r){ppeMoves(r).forEach(function(m){if(m.kind==='out'&&String(m.date||'').slice(0,7)===month)rows.push(Object.assign({item:r.item},m));});});
+  rows.sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
+  let x=head('PPE issue log',unitName()+' · '+MON[+month.slice(5)-1]+' '+month.slice(0,4),'<label for="regmonth" class="hidden-sr">Month</label><input class="in" type="month" id="regmonth" value="'+month+'" style="width:auto;min-height:44px">'+pdfButtons('PPE-issue-register-'+month,''));
+  x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet" id="sheet">'+sheetHead(S.settings.docPrefix+'/PP/'+month.replace('-',''),MON[+month.slice(5)-1]+' '+month.slice(0,4))+'<h3 class="title">PPE ISSUE REGISTER</h3>';
+  x+='<table><thead><tr><th style="width:36px">S.No</th><th style="width:82px">Date</th><th>Name</th><th style="width:70px">Emp ID</th><th>Department</th><th>PPE item</th><th style="width:48px">Size</th><th style="width:40px">Qty</th><th style="width:90px">Signature</th></tr></thead><tbody>'+(rows.length?rows.map(function(m,i){return '<tr><td>'+(i+1)+'</td><td>'+fmtD(m.date)+'</td><td>'+h(m.name)+'</td><td>'+h(m.emp)+'</td><td>'+h(m.dept)+'</td><td>'+h(m.item)+'</td><td>'+h(m.size)+'</td><td class="num">'+h(m.qty)+'</td><td></td></tr>';}).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--paper-muted);padding:18px">No PPE issued this month.</td></tr>')+'</tbody></table>';
+  x+=signBlock('Issued by – Stores / OHSE','Verified by – OHSE Manager')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
+  return x;
+}
+
+/* ---------- Visitors & contractors cards ---------- */
+function isContractor(d){return /contractor/i.test(String(d.kind||''));}
+function nowHM(){const d=new Date();return pad(d.getHours())+':'+pad(d.getMinutes());}
+function insideNow(r){return r.date===today()&&r.timeIn&&!r.timeOut;}
+function visCard(r){
+  const ph=(r.photos||[])[0];const inside=insideNow(r);const con=isContractor(r);
+  const medBad=con&&(r.medical==='Not fit'||(r.medicalTill&&daysTo(r.medicalTill)<0));
+  let x='<article class="xcard'+(r.induction!=='Done'||medBad?' warnb':'')+'">';
+  x+='<div class="vrow"><button type="button" class="vph" data-go="recView" data-col="visitors" data-id="'+h(r.id)+'" aria-label="Open '+h(r.name)+'">'+(ph?'<img src="'+photoUrl(ph)+'" alt="">':'<span class="noimg">'+ic('visitors',26)+'</span>')+'</button>';
+  x+='<div class="vmain"><div class="xtop"><div><b class="pname">'+h(r.name||'—')+'</b><span class="xloc">'+h([r.company,r.kind].filter(Boolean).join(' · '))+'</span></div>'+(inside?'<span class="pill info">Inside now</span>':'')+'</div>';
+  x+='<div class="vmeta"><span>'+fmtD(r.date)+(r.timeIn?' · in '+h(r.timeIn):'')+(r.timeOut?' · out '+h(r.timeOut):'')+'</span>'+(r.meeting?'<span>Meeting: '+h(r.meeting)+'</span>':'')+(r.phone?'<span><a href="tel:'+h(r.phone)+'">'+h(r.phone)+'</a></span>':'')+'</div></div></div>';
+  x+='<div class="xbody"><div class="vtags">'+(r.induction==='Done'?'<span class="pill ok">Induction done</span>':'<span class="pill warn">Induction not done</span>')+(r.ppeGiven&&r.ppeGiven.length?'<span class="pill plain">PPE: '+h(r.ppeGiven.join(', '))+'</span>':'')+'</div>';
+  if(con)x+='<div class="vcon"><div><span>Work</span><b>'+h(r.workType||'—')+'</b></div><div><span>Permit no.</span><b>'+h(r.permitNo||'—')+'</b></div><div><span>Medical</span><b class="'+(medBad?'bad':'')+'">'+h(r.medical||'—')+(r.medicalTill?' till '+fmtD(r.medicalTill):'')+'</b></div></div>';
+  if(inside&&can('write'))x+='<div class="xfoot"><small>Still inside the plant</small><button type="button" class="btn small primary" data-act="visout" data-id="'+h(r.id)+'">Mark out now</button></div>';
+  return x+'</div></article>';
+}
+function visList(rows){
+  const t=rows.filter(function(r){return r.date===today();});const inside=rows.filter(insideNow).length;const noInd=t.filter(function(r){return r.induction!=='Done';}).length;
+  let x='<section class="tiles"><div class="tile" style="cursor:default"><div class="l">Entries today</div><div class="n">'+t.length+'</div></div><div class="tile'+(inside?' warn':'')+'" style="cursor:default"><div class="l">Inside the plant now</div><div class="n">'+inside+'</div></div><div class="tile'+(noInd?' bad':'')+'" style="cursor:default"><div class="l">Today without induction</div><div class="n">'+noInd+'</div></div></section>';
+  return x+'<div class="xgrid">'+rows.map(visCard).join('')+'</div>';
+}
+async function visOut(id){const r=(S.data.visitors||[]).find(function(x){return x.id===id;});if(!r)return;const b=stripId(r);b.timeOut=nowHM();try{await writeDoc('visitors',id,b);toast(r.name+' marked out at '+b.timeOut+'.');render();}catch(e){toast('Could not save.');}}
+
+/* ---------- First aid cards ---------- */
+function faOutcome(r){return r.outcome||(r.referred==='Yes'?'Sent to hospital':r.referred==='No'?'Back to work':'');}
+function faPill(r){const o=faOutcome(r);return o==='Sent to hospital'?'<span class="pill bad">Hospital</span>':o==='Sent home'?'<span class="pill warn">Sent home</span>':o?'<span class="pill ok">'+h(o)+'</span>':'';}
+function faCard(r){
+  const ph=(r.photos||[])[0];
+  return '<button type="button" class="ocard" data-go="recView" data-col="firstaid" data-id="'+h(r.id)+'"><div class="ph one">'+(ph?'<span class="mwrap"><img src="'+photoUrl(ph)+'" alt="">'+((r.photos||[]).length>1?'<span class="cnt">+'+((r.photos||[]).length-1)+'</span>':'')+'</span>':'<span class="mwrap none">'+ic('firstaid',30)+'</span>')+'</div><div class="meta"><div class="top"><span>'+h(r.dept||'')+(r.time?' · '+h(r.time):'')+'</span>'+faPill(r)+'</div><b style="overflow-wrap:anywhere">'+h(r.name||'—')+(r.injury?' – '+h(r.injury):'')+'</b><small style="color:var(--muted)">'+fmtD(r.date)+(r.treatment?' · '+h(r.treatment):'')+(r.givenBy?' · by '+h(r.givenBy):'')+'</small></div></button>';
+}
+function faList(rows){
+  const m=today().slice(0,7);const mon=rows.filter(function(r){return String(r.date||'').slice(0,7)===m;});const hos=mon.filter(function(r){return faOutcome(r)==='Sent to hospital';}).length;
+  let x='<section class="tiles"><div class="tile" style="cursor:default"><div class="l">Cases this month</div><div class="n">'+mon.length+'</div></div><div class="tile'+(hos?' bad':'')+'" style="cursor:default"><div class="l">Sent to hospital this month</div><div class="n">'+hos+'</div></div><div class="tile" style="cursor:default"><div class="l">All cases</div><div class="n">'+rows.length+'</div></div></section>';
+  return x+'<div class="cards large">'+rows.map(faCard).join('')+'</div>';
+}
+
 /* ---------- Generic records ---------- */
 function vRecords(){
   let x=head('Records','Everything kept for audits, filed by date and unit','<span class="desk-only">'+deskUnit()+'</span>');
@@ -1883,11 +2016,13 @@ function vRecList(col){
   const R=REC[col];let rows=list(col).slice();
   rows.sort(col==='certs'?function(a,b){return String(a.expiry).localeCompare(String(b.expiry));}:byNewest);
   let mode=S.recMode||'details';
+  if(col==='ppe'||col==='visitors'||col==='firstaid'){S.cardMode=S.cardMode||{};mode=S.cardMode[col]||'cards';}
   if(col==='ext'){mode=S.extMode||'cards';rows.sort(function(a,b){return String(a.tag||'').localeCompare(String(b.tag||''),undefined,{numeric:true});});}
-  let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+(col==='trainings'?'<button type="button" class="btn" data-go="tcal">Training calendar</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase())+'</button>');
+  let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+(col==='trainings'?'<button type="button" class="btn" data-go="tcal">Training calendar</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase().replace('ppe','PPE'))+'</button>');
   x+='<div class="content">'+banners();
-  if(!rows.length)return x+'<div class="panel"><div class="empty">No '+h(R.label.toLowerCase())+' yet for '+h(unitName())+'. Use Add '+h(R.one.toLowerCase())+' to create the first one.</div></div></div>';
+  if(!rows.length)return x+'<div class="panel"><div class="empty">No '+h(R.label.toLowerCase())+' yet for '+h(unitName())+'. Use Add '+h(R.one.toLowerCase().replace('ppe','PPE'))+' to create the first one.'+(col==='ppe'&&can('write')?' <button type="button" class="btn small" data-act="ppeseed" style="margin-left:6px">Add the standard PPE list</button>':'')+'</div></div></div>';
   if(col==='ext'){x+='<div class="btnrow" style="justify-content:flex-end"><div class="seg" role="group" aria-label="View"><button type="button" data-act="extmode" data-m="cards" aria-pressed="'+(mode==='cards')+'">Cards</button><button type="button" data-act="extmode" data-m="details" aria-pressed="'+(mode==='details')+'">Table</button></div></div>';if(mode==='cards')return x+extList(rows)+'</div>';}
+  else if(col==='ppe'||col==='visitors'||col==='firstaid'){x+='<div class="btnrow" style="justify-content:'+(col==='ppe'?'space-between':'flex-end')+'">'+(col==='ppe'?'<button type="button" class="btn small" data-go="ppeLog">PPE issue log / register</button>':'')+'<div class="seg" role="group" aria-label="View"><button type="button" data-act="cardmode" data-col="'+col+'" data-m="cards" aria-pressed="'+(mode==='cards')+'">Cards</button><button type="button" data-act="cardmode" data-col="'+col+'" data-m="details" aria-pressed="'+(mode==='details')+'">Table</button></div></div>';if(mode==='cards')return x+(col==='ppe'?ppeList(rows):col==='visitors'?visList(rows):faList(rows))+'</div>';}
   else x+='<div class="btnrow" style="justify-content:flex-end">'+modeSelect('recmode',mode)+'</div>';
   const open=function(r){return 'data-go="recView" data-col="'+col+'" data-id="'+h(r.id)+'"';};
   if(mode==='details')x+='<div class="panel"><div class="tablewrap"><table class="list"><thead><tr><th style="width:60px"><span class="hidden-sr">Photo</span></th>'+R.cols.map(function(c){return '<th>'+h(c[1])+'</th>';}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr class="click" '+open(r)+' tabindex="0"><td>'+recCover(col,r,'xs')+'</td>'+R.cols.map(function(c){return '<td>'+(c[2]?c[2](r):h(r[c[0]]))+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div></div>';
@@ -1902,6 +2037,9 @@ function newRec(col){
   const draft={};REC[col].fields.forEach(function(f){if(f.t==='date')draft[f.k]=today();if(f.t==='select'&&f.o)draft[f.k]=f.o[0];if(f.t==='photos'||f.t==='lines'||f.t==='people'||f.t==='checks')draft[f.k]=[];});
   if(col==='trainings'&&S.myName)draft.trainer=S.myName;
   if(col==='ext')['lastRefill','refillDue','hptDate','hptDue','checkedOn'].forEach(function(k){draft[k]='';});
+  if(col==='visitors'){draft.timeIn=nowHM();draft.medicalTill='';draft.induction='Done';}
+  if(col==='firstaid'){draft.time=nowHM();if(S.myName)draft.givenBy=S.myName;}
+  if(col==='ppe'){draft.minLevel=10;draft.opening=0;draft.moves=[];}
   S.form={kind:'rec',col:col,id:null,draft:draft};go('recForm',{col:col});
 }
 function editRec(col,id){const r=(S.data[col]||[]).find(function(x){return x.id===id;});if(!r)return;S.form={kind:'rec',col:col,id:id,draft:JSON.parse(JSON.stringify(r))};go('recForm',{col:col,id:id});}
@@ -1915,7 +2053,7 @@ function fieldHtml(f,d){
     case 'people':inner=lab+'<textarea class="in" id="'+id+'" style="min-height:140px">'+h((v||[]).map(function(p){return [p.name,p.emp,p.dept].filter(Boolean).join(', ');}).join('\n'))+'</textarea><small>'+h(f.hint)+' · '+(v||[]).length+' listed</small>';break;
     case 'checks':{const opts=f.opts(d);inner='<span class="lab">'+h(f.l)+'</span><div class="checks">'+opts.map(function(o,i){return '<label><input type="checkbox" name="c_'+f.k+'" value="'+h(o)+'"'+((v||[]).indexOf(o)>=0?' checked':'')+'>'+h(o)+'</label>';}).join('')+'</div>';break;}
     case 'photos':inner='<span class="lab">'+h(f.l)+'</span><div class="photos" id="ph_'+f.k+'">'+photosInner(f.k,v)+'</div>';break;
-    default:inner=lab+'<input class="in" id="'+id+'" type="'+(f.t==='number'?'number':f.t)+'"'+(f.t==='number'?' inputmode="numeric"':'')+(f.ph?' placeholder="'+h(f.ph)+'"':'')+' value="'+h(v)+'">';
+    default:inner=lab+'<input class="in" id="'+id+'" type="'+(f.t==='number'?'number':f.t)+'"'+(f.t==='number'?' inputmode="numeric"':'')+(f.ph?' placeholder="'+h(f.ph)+'"':'')+(f.list?' list="dl_'+f.k+'"':'')+' value="'+h(v)+'">'+(f.list?'<datalist id="dl_'+f.k+'">'+f.list.map(function(o){return '<option value="'+h(o)+'">';}).join('')+'</datalist>':'');
   }
   return '<div class="field'+(f.wide?' wide':'')+'">'+inner+'</div>';
 }
@@ -1926,7 +2064,7 @@ function vRecForm(){
   const f=S.form;if(!f||f.kind!=='rec')return head('Nothing to edit','')+'<div class="content"></div>';
   const R=REC[f.col];const d=f.draft;
   let x=head((f.id?'Edit ':'New ')+R.one.toLowerCase(),unitName(d.unit)+(d.no?' · '+d.no:''),'');
-  x+='<div class="content" style="max-width:900px">'+banners()+'<form id="recform" class="form" novalidate>'+R.fields.map(function(fl){return fieldHtml(fl,d);}).join('')+'</form>';
+  x+='<div class="content" style="max-width:900px">'+banners()+'<form id="recform" class="form" novalidate>'+R.fields.filter(function(fl){return !fl.show||fl.show(d);}).map(function(fl){return fieldHtml(fl,d);}).join('')+'</form>';
   x+='<div class="sticky-save"><button type="button" class="btn ghost" data-act="cancelform">Cancel</button><button type="button" class="btn primary" data-act="saverec" id="saverec">Save</button></div></div>';
   return x;
 }
@@ -1951,6 +2089,7 @@ async function saveRec(){
   const id=f.id||rid();const body=stripId(d);
   if(!body.unit)body.unit=S.unit;if(!body.createdAt)body.createdAt=new Date().toISOString();if(!body.by)body.by=S.uid||'';
   if(!body.no&&!R.register)body.no=nextNo(f.col);
+  if(f.col==='firstaid'&&body.outcome)body.referred=body.outcome==='Sent to hospital'?'Yes':'No';
   if(f.col==='ext'){if((body.checks||[]).length&&!body.checkedOn)body.checkedOn=today();if(body.checkedOn){body.condition=extCond(body);}}
   body.updatedAt=new Date().toISOString();
   try{await writeDoc(f.col,id,body);S.form=null;toast(R.one+' saved.');go('recView',{col:f.col,id:id});}
@@ -1985,16 +2124,19 @@ function signBlock(a,b){return '<div class="sign"><div>'+h(a)+'</div><div>'+h(b)
 function recSheet(col,r){
   const R=REC[col];
   let x='<article class="sheet" id="sheet" aria-label="'+h(R.report)+'">'+sheetHead(r.no,r.date?fmtD(r.date):(r.from?fmtDT(r.from):fmtD((r.createdAt||'').slice(0,10))),r.unit)+'<h3 class="title">'+h(R.report)+'</h3>';
-  const simple=R.fields.filter(function(f){return ['text','select','dept','date','time','number','datetime-local'].indexOf(f.t)>=0;});
+  const simple=R.fields.filter(function(f){return ['text','select','dept','date','time','number','datetime-local','tel'].indexOf(f.t)>=0&&(!f.show||f.show(r));});
   x+='<div class="kv">'+simple.map(function(f){let v=r[f.k];if(f.t==='date')v=fmtD(v);else if(f.t==='datetime-local')v=fmtDT(v);else v=h(v);return '<div><span>'+h(f.l)+':</span> '+(v===''||v==null?'—':v)+'</div>';}).join('')+(simple.length%2?'<div></div>':'')+'</div>';
   R.fields.forEach(function(f){
     const v=r[f.k];
     if(f.t==='textarea'&&v)x+='<div class="sec">'+h(f.l)+'</div><div style="white-space:pre-line">'+h(v)+'</div>';
     if(f.t==='lines'&&v&&v.length)x+='<div class="sec">'+h(f.l)+'</div><ol>'+v.map(function(s){return '<li>'+h(s)+'</li>';}).join('')+'</ol>';
+    if(f.show&&!f.show(r))return;
     if(f.t==='checks'){const opts=f.opts(r);x+='<div class="sec">'+h(f.l)+'</div><table><tbody>'+opts.map(function(o){const ok=(v||[]).indexOf(o)>=0;return '<tr><td>'+h(o)+'</td><td style="width:70px;text-align:center;font-weight:700">'+(ok?'Yes':'No')+'</td></tr>';}).join('')+'</tbody></table>';}
     if(f.t==='photos'&&v&&v.length)x+='<div class="sec">'+h(f.l)+'</div><div class="pgrid">'+v.map(function(p){return '<img src="'+photoUrl(p)+'" alt="" crossorigin="anonymous">';}).join('')+'</div>';
     if(f.t==='people'){const ps=v||[];x+='<div class="sec">'+h(f.l)+' ('+ps.length+')</div><table><thead><tr><th style="width:44px">S.No</th><th>Name</th><th>Emp. ID</th><th>Department</th><th style="width:120px">Signature</th></tr></thead><tbody>'+(ps.length?ps:[{},{},{}]).map(function(p,i){return '<tr><td>'+(i+1)+'</td><td>'+h(p.name)+'</td><td>'+h(p.emp)+'</td><td>'+h(p.dept)+'</td><td></td></tr>';}).join('')+'</tbody></table>';}
   });
+  if(col==='ppe'){const sz=ppeSizes(r);x+='<div class="sec">Stock</div><table><thead><tr><th>Size</th><th>In stock</th></tr></thead><tbody>'+(sz.length?sz.map(function(z){return '<tr><td>'+h(z)+'</td><td class="num">'+ppeBal(r,z)+'</td></tr>';}).join(''):'')+'<tr><td><b>Total</b></td><td class="num"><b>'+ppeTotal(r)+'</b></td></tr></tbody></table>';
+    const mv=ppeMoves(r).slice(-25).reverse();if(mv.length)x+='<div class="sec">Received and issued (latest '+mv.length+')</div><table><thead><tr><th>Date</th><th>In / out</th><th>Size</th><th>Qty</th><th>To / from</th><th>Department</th></tr></thead><tbody>'+mv.map(function(m){return '<tr><td>'+fmtD(m.date)+'</td><td>'+(m.kind==='in'?'Received':'Issued')+'</td><td>'+h(m.size)+'</td><td class="num">'+h(m.qty)+'</td><td>'+h(m.kind==='in'?m.ref:[m.name,m.emp].filter(Boolean).join(' · '))+'</td><td>'+h(m.dept)+'</td></tr>';}).join('')+'</tbody></table>';}
   if(col==='ext')x+='<div style="font-size:13px"><b>Condition:</b> '+h(extCond(r)||'Not checked')+'</div>';
   if(col==='permits'&&r.approvedAt)x+='<div style="font-size:12px">Approved on '+fmtD(String(r.approvedAt).slice(0,10))+'</div>';
   x+=col==='permits'?signBlock('Permit receiver (contractor)','Issued / approved by – OHSE'):col==='incidents'?signBlock('Investigated by – OHSE','Reviewed by – Plant Head'):signBlock('Conducted by – OHSE Manager','Reviewed by – HOD / Plant Head');
@@ -2118,10 +2260,13 @@ function vRepRegister(col){
   if(R.dated)rows=rows.filter(function(r){return String(r.date||'').slice(0,7)===month;});
   rows.sort(function(a,b){return String(a.date||a.expiry||a.tag||a.item||'').localeCompare(String(b.date||b.expiry||b.tag||b.item||''));});
   let fields=R.fields.filter(function(f){return f.t!=='photos'&&f.t!=='textarea';});
+  if(col==='ppe')fields=[{k:'item',t:'text',l:'PPE item'},{k:'spec',t:'text',l:'Type / standard'},{k:'sizes',t:'text',l:'Sizes'},{k:'_stock',t:'calc',l:'In stock',f:function(r){return ppeTotal(r);}},{k:'_in',t:'calc',l:'Received this month',f:function(r){return ppeMonth(r,'in');}},{k:'_out',t:'calc',l:'Issued this month',f:function(r){return ppeMonth(r,'out');}},{k:'minLevel',t:'text',l:'Minimum'},{k:'_st',t:'calc',l:'Status',f:function(r){return lowStock(r)?'RE-ORDER':'OK';}}];
+  if(col==='visitors')fields=[{k:'date',t:'date',l:'Date'},{k:'name',t:'text',l:'Name'},{k:'company',t:'text',l:'Company'},{k:'kind',t:'text',l:'Type'},{k:'meeting',t:'text',l:'Meeting'},{k:'timeIn',t:'text',l:'In'},{k:'timeOut',t:'text',l:'Out'},{k:'induction',t:'text',l:'Induction'},{k:'_ppe',t:'calc',l:'PPE given',f:function(r){return (r.ppeGiven||[]).join(', ');}},{k:'permitNo',t:'text',l:'Permit no.'},{k:'_sig',t:'calc',l:'Signature',f:function(){return '';}}];
+  if(col==='firstaid')fields=[{k:'date',t:'date',l:'Date'},{k:'time',t:'text',l:'Time'},{k:'name',t:'text',l:'Name'},{k:'emp',t:'text',l:'Emp ID'},{k:'dept',t:'text',l:'Department'},{k:'injury',t:'text',l:'Injury / complaint'},{k:'treatment',t:'text',l:'Treatment'},{k:'givenBy',t:'text',l:'Given by'},{k:'_out',t:'calc',l:'After treatment',f:function(r){return faOutcome(r);}}];
   if(col==='ext')fields=fields.filter(function(f){return ['make','lastRefill','hptDate','remarks'].indexOf(f.k)<0;}).concat([{k:'condition',t:'cond',l:'Condition'},{k:'remarks',t:'text',l:'Remarks'}]);
   let x=head(R.label+' register',unitName()+(R.dated?' · '+MON[+month.slice(5)-1]+' '+month.slice(0,4):''),(R.dated?'<label for="regmonth" class="hidden-sr">Month</label><input class="in" type="month" id="regmonth" value="'+month+'" style="width:auto;min-height:44px">':'')+'<button type="button" class="btn" data-go="recList" data-col="'+col+'">Edit list</button>'+pdfButtons(R.label.replace(/[^A-Za-z]+/g,'-')+'-register-'+month,''));
   x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet'+(fields.length>6?' wide':'')+'" id="sheet">'+sheetHead(S.settings.docPrefix+'/'+R.code+'/'+month.replace('-',''),R.dated?MON[+month.slice(5)-1]+' '+month.slice(0,4):fmtD(today()))+'<h3 class="title">'+h(R.report)+'</h3>';
-  x+='<table><thead><tr><th style="width:40px">S.No</th>'+fields.map(function(f){return '<th>'+h(f.l)+'</th>';}).join('')+'</tr></thead><tbody>'+(rows.length?rows.map(function(r,i){return '<tr><td>'+(i+1)+'</td>'+fields.map(function(f){let v=r[f.k];if(f.t==='date')v=fmtD(v);else if(f.t==='checks'){const o=f.opts(r);const miss=o.filter(function(c){return (v||[]).indexOf(c)<0;});v=r.checkedOn?(miss.length?'<b>'+(o.length-miss.length)+'/'+o.length+'</b><br><span style="color:var(--paper-muted)">Not OK: '+h(miss.join(', '))+'</span>':'<b>All OK</b>'):'—';}else if(f.t==='cond')v='<b>'+h(col==='ext'?extCond(r)||'—':v||'—')+'</b>';else v=h(v);return '<td>'+v+'</td>';}).join('')+'</tr>';}).join(''):'<tr><td colspan="'+(fields.length+1)+'" style="text-align:center;color:var(--paper-muted);padding:18px">No entries'+(R.dated?' this month':'')+'.</td></tr>')+'</tbody></table>';
+  x+='<table><thead><tr><th style="width:40px">S.No</th>'+fields.map(function(f){return '<th>'+h(f.l)+'</th>';}).join('')+'</tr></thead><tbody>'+(rows.length?rows.map(function(r,i){return '<tr><td>'+(i+1)+'</td>'+fields.map(function(f){let v=r[f.k];if(f.t==='date')v=fmtD(v);else if(f.t==='checks'){const o=f.opts(r);const miss=o.filter(function(c){return (v||[]).indexOf(c)<0;});v=r.checkedOn?(miss.length?'<b>'+(o.length-miss.length)+'/'+o.length+'</b><br><span style="color:var(--paper-muted)">Not OK: '+h(miss.join(', '))+'</span>':'<b>All OK</b>'):'—';}else if(f.t==='calc')v=h(f.f(r));else if(f.t==='cond')v='<b>'+h(col==='ext'?extCond(r)||'—':v||'—')+'</b>';else v=h(v);return '<td>'+v+'</td>';}).join('')+'</tr>';}).join(''):'<tr><td colspan="'+(fields.length+1)+'" style="text-align:center;color:var(--paper-muted);padding:18px">No entries'+(R.dated?' this month':'')+'.</td></tr>')+'</tbody></table>';
   x+=signBlock('Checked by – OHSE','Verified by – HOD / Plant Head')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
   return x;
 }
@@ -2285,6 +2430,7 @@ function parentOf(v,arg){
     case 'recList':return {v:'records'};
     case 'compItem':return {v:'comp'};
     case 'comp':case 'tcal':case 'zs':return {v:'records'};
+    case 'ppeLog':return {v:'recList',arg:{col:'ppe'}};
     case 'zsForm':return {v:'zs'};
     case 'repDaily':case 'repSummary':case 'rep2S':return {v:'reports'};
     case 'settings':return {v:'more'};
@@ -2409,6 +2555,8 @@ document.addEventListener('change',async function(e){
     const box2=document.getElementById('ph_'+k);if(box2)box2.innerHTML=photosInner(k,S.form.draft[k]);return;
   }
   if(el.id==='f_kind'&&S.form&&S.form.col==='permits'){readRecForm();S.form.draft.checks=[];render();return;}
+  if((el.id==='f_kind'||el.id==='f_outcome')&&S.form&&(S.form.col==='visitors'||S.form.col==='firstaid')){readRecForm();render();return;}
+  if(el.id==='f_item'&&S.form&&S.form.col==='ppe'){const std=PPE_STD.find(function(p){return p[0].toLowerCase()===el.value.trim().toLowerCase();});const sz=document.getElementById('f_sizes');if(std&&sz&&!sz.value)sz.value=std[1];return;}
   if(el.id==='deptf'){S.deptFilter=el.value;render();return;}
   if(el.id==='repdate'){S.repDate=el.value||today();render();return;}
   if(el.id==='regmonth'){S.regMonth=el.value||today().slice(0,7);render();return;}
