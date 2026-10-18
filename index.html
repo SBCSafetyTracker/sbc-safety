@@ -231,6 +231,19 @@ table.list tr.click{cursor:pointer}table.list tr.click:hover td{background:var(-
 .xcheck{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:10px}
 .xcheck .in{margin:6px 0}
 
+/* original document viewer */
+.dvwrap{max-width:900px;width:100%;margin:0 auto}
+.dvhost{display:flex;flex-direction:column;gap:12px;min-height:120px}
+.dvpage{display:block;background:#fff;box-shadow:0 1px 4px rgba(30,30,10,.25)}
+.dvimg{max-width:100%;display:block;margin:0 auto;box-shadow:0 1px 4px rgba(30,30,10,.25)}
+.dvmsg{padding:30px 16px;text-align:center;color:var(--muted)}
+.dvbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted)}
+.dvover{position:fixed;inset:0;z-index:70;background:var(--ground);display:flex;flex-direction:column}
+.dvhead{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));padding-top:calc(10px + env(safe-area-inset-top,0px));background:var(--brand);color:var(--brand-ink)}
+.dvhead b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dvbody{flex:1;overflow:auto;padding:16px max(12px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.dvbody .dvhost{max-width:900px;margin:0 auto}
+
 /* PPE, visitors, first aid */
 .xph.sm{height:150px}
 .pname{display:block;font-size:17px}
@@ -495,7 +508,7 @@ const REC = {
       {k:'expiry',t:'date',l:'Valid till',req:1},
       {k:'photos',t:'photos',l:'Certificate copy',wide:1}
     ],
-    cols:[['equipment','Equipment'],['idno','ID'],['dept','Location'],['swl','SWL / capacity'],['expiry','Valid till',function(r){return fmtD(r.expiry);}],['st','Status',function(r){return duePill(r.expiry)+((r.docs||[]).length?' <span class="pill plain">PDF</span>':'');}]]},
+    cols:[['equipment','Equipment'],['idno','ID'],['dept','Location'],['swl','SWL / capacity'],['expiry','Valid till',function(r){return fmtD(r.expiry);}],['st','Status',function(r){return duePill(r.expiry)+((r.docs||[]).length?' <button type="button" class="btn small" data-act="opendoc" data-col="certs" data-rid="'+h(r.id)+'" data-id="'+h(r.docs[0].id)+'" data-find="'+h(certFind(r))+'">View</button>':'');}]]},
   ext:{label:'Fire extinguishers', one:'Fire extinguisher', code:'FE', report:'MONTHLY FIRE EXTINGUISHER INSPECTION', icon:'ext', sub:'Register and monthly check', register:1,
     fields:[
       {k:'photos',t:'photos',l:'Photo of the extinguisher and its label',wide:1},
@@ -962,6 +975,7 @@ function fillQr(){
 function qrFallback(els){els.forEach(function(el){const s=document.createElement('span');s.className='qrfail';s.textContent='QR code appears when online';el.replaceWith(s);});}
 function afterPaint(){
   fillQr();
+  try{paintDocHosts();}catch(e){}
   document.querySelectorAll('video[data-vid]').forEach(function(v){
     videoUrl(v.dataset.vid,v.dataset.mime).then(function(u){if(v.isConnected&&!v.getAttribute('src')){v.src=u;const p=v.play();if(p&&p.catch)p.catch(function(){});}}).catch(function(){});
   });
@@ -1570,6 +1584,7 @@ async function compSave(){
 }
 async function compView(i){
   const f=S.form;const dc=f&&f.draft.docs[i];if(!dc)return;
+  if(dc.id&&!dc.blob){openDocViewer(dc,'');return;}
   const w=window.open('','_blank');
   try{
     let u;
@@ -1855,7 +1870,8 @@ async function extClick(t){
   if(await tcalClick(t))return true;
   switch(a){
     case 'setrisk':setRisk(t.dataset.r);return true;
-    case 'opendoc':{const w=window.open('','_blank');try{const u=await videoUrl(t.dataset.id,t.dataset.mime||'application/pdf');if(w)w.location.href=u;else location.href=u;}catch(e){if(w)w.close();toast('The file is not on this device yet. Try again when online.');}return true;}
+    case 'opendoc':{const rec=t.dataset.col&&(S.data[t.dataset.col]||[]).find(function(x){return x.id===t.dataset.rid;});const d=(rec&&(rec.docs||[]).find(function(x){return x.id===t.dataset.id;}))||{id:t.dataset.id,mime:t.dataset.mime,name:t.dataset.name};openDocViewer(d,t.dataset.find||'');return true;}
+    case 'certmode':S.certMode=t.dataset.m;render();return true;
     case 'extmode':S.extMode=t.dataset.m;render();return true;
     case 'cardmode':S.cardMode=S.cardMode||{};S.cardMode[t.dataset.col]=t.dataset.m;render();return true;
     case 'ppemove':S.ppeMove={id:t.dataset.id,kind:t.dataset.k};render();return true;
@@ -2010,6 +2026,75 @@ function faList(rows){
   return x+'<div class="cards large">'+rows.map(faCard).join('')+'</div>';
 }
 
+
+/* ---------- Original document viewer (PDF pages drawn inside the app, works on phones too) ---------- */
+const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+let pdfjsP=null;const pdfCache={};
+function pdfjs(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  pdfjsP=pdfjsP||loadScript(PDFJS+'pdf.min.js').then(async function(){for(let i=0;i<50&&!window.pdfjsLib;i++)await new Promise(function(r){setTimeout(r,100);});if(!window.pdfjsLib)throw new Error('pdf.js');if(!window.pdfjsLib.GlobalWorkerOptions.workerSrc)window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js';return window.pdfjsLib;});
+  pdfjsP.catch(function(){pdfjsP=null;});return pdfjsP;
+}
+function isPdfDoc(d){return /pdf/i.test(d.mime||'')||d.type==='pdf'||/\.pdf$/i.test(d.name||'');}
+function normTxt(t){return String(t||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+async function docUrl(d){return videoUrl(d.id,isPdfDoc(d)?'application/pdf':(d.mime||'image/jpeg'));}
+function loadPdf(d){
+  if(!pdfCache[d.id])pdfCache[d.id]=(async function(){const lib=await pdfjs();const u=await docUrl(d);const buf=await (await fetch(u)).arrayBuffer();const pdf=await lib.getDocument({data:buf}).promise;const texts=[];for(let i=1;i<=pdf.numPages;i++){try{const pg=await pdf.getPage(i);const tc=await pg.getTextContent();texts.push(normTxt(tc.items.map(function(it){return it.str;}).join(' ')));}catch(e){texts.push('');}}return {pdf:pdf,texts:texts};})();
+  pdfCache[d.id].catch(function(){delete pdfCache[d.id];});
+  return pdfCache[d.id];
+}
+/* draws the document into host; with find, starts with the page(s) that mention it */
+async function renderDoc(host,d,find,all){
+  host.innerHTML='<div class="dvmsg">Opening the original document…</div>';
+  try{
+    if(!isPdfDoc(d)){const u=await docUrl(d);host.innerHTML='<img class="dvimg" src="'+u+'" alt="'+h(d.name||'Document')+'">';return;}
+    const r=await loadPdf(d);const n=r.pdf.numPages;
+    let pages=[];const f=normTxt(find);
+    if(f&&!all)r.texts.forEach(function(t,i){if(t.indexOf(f)>=0)pages.push(i+1);});
+    const partial=pages.length&&pages.length<n;if(!pages.length)pages=Array.from({length:n},function(_,i){return i+1;});
+    if(!host.isConnected)return;
+    host.innerHTML='<div class="dvbar"><span>'+(partial?'Showing page '+pages.join(', ')+' of '+n+' – this item':n+' page'+(n>1?'s':''))+'</span>'+(partial?'<button type="button" class="btn small" data-act="dvall">Show all '+n+' pages</button>':'')+'</div>';
+    const w=Math.max(280,host.clientWidth||600);const dpr=Math.min(2,window.devicePixelRatio||1);
+    for(const p of pages){
+      const pg=await r.pdf.getPage(p);const v1=pg.getViewport({scale:1});const sc=w/v1.width;const vp=pg.getViewport({scale:sc*dpr});
+      const c=document.createElement('canvas');c.width=Math.floor(vp.width);c.height=Math.floor(vp.height);c.style.width='100%';c.className='dvpage';c.setAttribute('aria-label','Page '+p);
+      if(!host.isConnected)return;host.appendChild(c);
+      await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    }
+  }catch(e){try{console.warn('doc viewer',e);}catch(_){}host.innerHTML='<div class="dvmsg">The document could not be shown here'+(navigator.onLine?'':' – you are offline')+'. <button type="button" class="btn small" data-act="dvtab">Open in a new tab</button></div>';}
+}
+/* full-screen viewer, kept outside the re-rendered app */
+function openDocViewer(d,find){
+  closeDocViewer();
+  const o=document.createElement('div');o.id='docviewer';o.className='dvover';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');o.setAttribute('aria-label',d.name||'Document');
+  o.innerHTML='<div class="dvhead"><b>'+h(d.name||'Document')+'</b><div class="btnrow"><button type="button" class="btn small" data-act="dvtab">Open in new tab</button><button type="button" class="btn small primary" data-act="dvclose">Close</button></div></div><div class="dvbody"><div class="dvhost"></div></div>';
+  document.body.appendChild(o);S.dvDoc={d:d,find:find};
+  renderDoc(o.querySelector('.dvhost'),d,find,false);
+}
+function closeDocViewer(){const o=document.getElementById('docviewer');if(o)o.remove();S.dvDoc=null;}
+function certFind(r){return r.tcNo||String(r.idno||'').split('·').pop().trim();}
+function paintDocHosts(){
+  document.querySelectorAll('.dvhost[data-docid]').forEach(function(host){
+    if(host.dataset.done)return;host.dataset.done='1';
+    const rec=(S.data[host.dataset.col]||[]).find(function(x){return x.id===host.dataset.rid;});if(!rec)return;
+    const d=(rec.docs||[]).find(function(x){return x.id===host.dataset.docid;});if(!d)return;
+    renderDoc(host,d,host.dataset.find||'',host.dataset.all==='1');
+  });
+}
+document.addEventListener('click',function(e){
+  const t=e.target.closest('[data-act="dvclose"],[data-act="dvtab"],[data-act="dvall"]');if(!t)return;
+  const a=t.dataset.act;
+  if(a==='dvclose'){closeDocViewer();return;}
+  const ov=t.closest('#docviewer');const host=t.closest('.dvwrap,.dvover');
+  let d=null,find='';
+  if(ov&&S.dvDoc){d=S.dvDoc.d;find=S.dvDoc.find;}
+  else{const h2=t.closest('.dvhost');if(h2){const rec=(S.data[h2.dataset.col]||[]).find(function(x){return x.id===h2.dataset.rid;});d=rec&&(rec.docs||[]).find(function(x){return x.id===h2.dataset.docid;});}}
+  if(!d)return;
+  if(a==='dvall'){const hh=t.closest('.dvhost');if(hh)renderDoc(hh,d,find,true);return;}
+  if(a==='dvtab'){const w=window.open('','_blank');docUrl(d).then(function(u){if(w)w.location.href=u;else location.href=u;}).catch(function(){if(w)w.close();toast('Could not open the file.');});}
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.getElementById('docviewer'))closeDocViewer();});
+
 /* ---------- Generic records ---------- */
 function vRecords(){
   let x=head('Records','Everything kept for audits, filed by date and unit','<span class="desk-only">'+deskUnit()+'</span>');
@@ -2120,7 +2205,11 @@ function vRecView(){
   }
   right+=pdfButtons(R.one.replace(/[^A-Za-z]+/g,'-')+'-'+(r.no||r.date||'').replace(/[^0-9A-Za-z]+/g,'-'),shareText(col,r));
   let x=head(R.one+(r.no?' · '+r.no:''),unitName(r.unit),right);
-  x+='<div class="content">'+banners()+((r.docs||[]).length?'<div class="btnrow">'+r.docs.map(function(dc,i){return '<button type="button" class="btn" data-act="opendoc" data-id="'+h(dc.id)+'" data-mime="'+h(dc.mime||'application/pdf')+'">'+ic('down',18)+'Open '+h(dc.name||('document '+(i+1)))+'</button>';}).join('')+'</div>':'')+'<div class="sheetwrap">'+recSheet(col,r)+'</div>';
+  const hasDocs=(r.docs||[]).length>0;const cm=hasDocs?(S.certMode||'orig'):'typed';
+  x+='<div class="content">'+banners();
+  if(hasDocs)x+='<div class="btnrow" style="justify-content:space-between"><div class="seg" role="group" aria-label="View"><button type="button" data-act="certmode" data-m="orig" aria-pressed="'+(cm==='orig')+'">Original '+(col==='certs'?'certificate':'document')+'</button><button type="button" data-act="certmode" data-m="typed" aria-pressed="'+(cm==='typed')+'">Typed record</button></div>'+(r.docs.length>1?'<div class="btnrow">'+r.docs.map(function(dc){return '<button type="button" class="btn small" data-act="opendoc" data-col="'+col+'" data-rid="'+h(r.id)+'" data-id="'+h(dc.id)+'">'+h(dc.name)+'</button>';}).join('')+'</div>':'')+'</div>';
+  if(cm==='orig')x+='<div class="dvwrap">'+r.docs.slice(0,1).map(function(dc){return '<div class="dvhost" data-col="'+col+'" data-rid="'+h(r.id)+'" data-docid="'+h(dc.id)+'" data-find="'+h(col==='certs'?certFind(r):'')+'"></div>';}).join('')+'</div>';
+  else x+='<div class="sheetwrap">'+recSheet(col,r)+'</div>';
   if(can('write'))x+='<div class="btnrow"><button type="button" class="btn danger small" data-act="delrec" data-col="'+col+'" data-id="'+h(r.id)+'">'+(S.confirmDel===r.id?'Tap again to delete':'Delete')+'</button></div>';
   return x+'</div>';
 }
