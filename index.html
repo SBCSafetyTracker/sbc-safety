@@ -484,7 +484,7 @@ const REC = {
       {k:'ref',t:'text',l:'Source files / email',wide:1}
     ],
     cols:[['date','Date',function(r){return fmtD(r.date);}],['kind','Type'],['scenario','Scenario'],['photos','Photos',function(r){return (r.photos||[]).length;}]]},
-  certs:{label:'Certificates', one:'Certificate', code:'CR', report:'LIFTING EQUIPMENT & TOOLS – CERTIFICATION REGISTER', icon:'certs', sub:'Lifting equipment & tools', register:1,
+  certs:{label:'Certificates', one:'Certificate', code:'CR', report:'LIFTING EQUIPMENT & PRESSURE VESSELS – CERTIFICATION REGISTER', icon:'certs', sub:'Lifting equipment, tools & pressure vessels', register:1,
     fields:[
       {k:'equipment',t:'text',l:'Equipment',req:1},
       {k:'idno',t:'text',l:'ID / Sl. no'},
@@ -495,7 +495,7 @@ const REC = {
       {k:'expiry',t:'date',l:'Valid till',req:1},
       {k:'photos',t:'photos',l:'Certificate copy',wide:1}
     ],
-    cols:[['equipment','Equipment'],['idno','ID'],['dept','Department'],['expiry','Valid till',function(r){return fmtD(r.expiry);}],['st','Status',function(r){return duePill(r.expiry);}]]},
+    cols:[['equipment','Equipment'],['idno','ID'],['dept','Location'],['swl','SWL / capacity'],['expiry','Valid till',function(r){return fmtD(r.expiry);}],['st','Status',function(r){return duePill(r.expiry)+((r.docs||[]).length?' <span class="pill plain">PDF</span>':'');}]]},
   ext:{label:'Fire extinguishers', one:'Fire extinguisher', code:'FE', report:'MONTHLY FIRE EXTINGUISHER INSPECTION', icon:'ext', sub:'Register and monthly check', register:1,
     fields:[
       {k:'photos',t:'photos',l:'Photo of the extinguisher and its label',wide:1},
@@ -859,7 +859,9 @@ function dueItems(){
   list('obs').forEach(function(o){const st=obsStatus(o);if(st!=='Closed'&&o.target&&o.target<=t)out.push({go:'obsDetail',id:o.id,title:o.note||'Observation',sub:(o.dept||'')+' · '+o.kind,pill:st==='Overdue'?'<span class="pill bad">Overdue</span>':'<span class="pill warn">Due today</span>',rank:st==='Overdue'?0:1});});
   if(can('write')){
     list('permits').forEach(function(p){if(p.status==='Approved'&&p.to&&p.to.slice(0,10)<=t)out.push({go:'recView',col:'permits',id:p.id,title:(p.kind||'Permit')+' – '+(p.contractor||''),sub:(p.dept||'')+' · close the permit',pill:'<span class="pill warn">Close today</span>',rank:1});});
-    list('certs').forEach(function(c){const d=daysTo(c.expiry);if(d!=null&&d<=30)out.push({go:'recView',col:'certs',id:c.id,title:c.equipment+(c.idno?' ('+c.idno+')':''),sub:(c.dept||'')+' · certificate',pill:duePill(c.expiry),rank:d<0?0:2});});
+    (function(){const grp={};list('certs').forEach(function(c){const d=daysTo(c.expiry);if(d==null||d>30)return;const k=(c.plant||'')+'|'+c.equipment+'|'+c.expiry;(grp[k]=grp[k]||[]).push(c);});
+      Object.keys(grp).forEach(function(k){const g=grp[k],c=g[0],d=daysTo(c.expiry);if(g.length===1)out.push({go:'recView',col:'certs',id:c.id,title:c.equipment+(c.idno?' ('+c.idno+')':''),sub:(c.dept||'')+' · certificate',pill:duePill(c.expiry),rank:d<0?0:2});
+        else out.push({go:'recList',col:'certs',title:g.length+' × '+c.equipment+(c.plant?' – '+c.plant:''),sub:(d<0?'Inspection overdue since ':'Inspection due ')+fmtD(c.expiry),pill:duePill(c.expiry),rank:d<0?0:2});});})();
     list('ext').forEach(function(e){const d=daysTo(e.refillDue);if(d!=null&&d<=30)out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – '+(e.location||''),sub:'Refill due',pill:duePill(e.refillDue),rank:d<0?0:2});if(extCond(e)==='Needs attention')out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||''),sub:e.location||'',pill:'<span class="pill bad">Needs attention</span>',rank:1});});
     list('ext').forEach(function(e){const d=daysTo(e.hptDue);if(d!=null&&d<=30)out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – hydro test',sub:e.location||'',pill:duePill(e.hptDue),rank:d<0?0:2});});
     (function(){const ex=list('ext');const left=ex.filter(function(e){return !extCheckedThisMonth(e);}).length;if(ex.length&&left&&new Date().getDate()>=20)out.push({go:'recList',col:'ext',title:left+' extinguisher'+(left>1?'s':'')+' not checked this month',sub:'Monthly check',pill:'<span class="pill warn">Check</span>',rank:2});})();
@@ -1812,16 +1814,27 @@ async function tcalClick(t){
 
 /* ---------- Policies and EHS procedures: bulk import of PDFs named "<item key> - <title>.pdf" ---------- */
 function compAllItems(){const out=[];COMP_CATS.forEach(function(c){compItems(c).forEach(function(it){out.push(it);});});return out;}
+async function certImport(f){
+  const m=/^cert-([A-Za-z0-9-]+)/.exec(f.name||'');if(!m)return null;
+  const rows=(S.data.certs||[]).filter(function(r){return r.srcFile===m[1];});if(!rows.length)return 0;
+  if(rows.every(function(r){return (r.docs||[]).some(function(d){return d.name===f.name;});}))return rows.length;
+  const id=await uploadPhoto(f);const doc={id:id,type:'pdf',mime:'application/pdf',name:f.name.replace(/^cert-[A-Za-z0-9-]+\s*-\s*/,'')};
+  for(const r of rows){const b=stripId(r);b.docs=(b.docs||[]).filter(function(d){return d.name!==doc.name;}).concat([doc]);b.updatedAt=new Date().toISOString();await writeDoc('certs',r.id,b);}
+  return rows.length;
+}
 async function compImport(files){
-  const all=compAllItems();let ok=0,skip=[];const groups={};
-  files.forEach(function(f){const m=/^([a-z0-9_]+)\s*-\s*/i.exec(f.name||'');const it=m&&all.find(function(i){return i.k===m[1];});if(!it){skip.push(f.name);return;}(groups[it.k]=groups[it.k]||[]).push(f);});
+  const all=compAllItems();let ok=0,skip=[];const groups={};let certN=0,certF=0;
+  const rest=[];
+  for(const f of files){if(/^cert-/i.test(f.name||'')){toast('Attaching '+f.name+'…');try{const n=await certImport(f);if(n){certN+=n;certF++;}else skip.push(f.name);}catch(e){skip.push(f.name);}}else rest.push(f);}
+  files=rest;
+  files.forEach(function(f){const m=/^([a-z0-9_]+)(?:@(u\d+))?\s*-\s*/i.exec(f.name||'');const it=m&&all.find(function(i){return i.k===m[1];});if(!it){skip.push(f.name);return;}const gk=it.k+'@'+(m[2]||S.unit);(groups[gk]=groups[gk]||[]).push(f);});
   const keys=Object.keys(groups);
   for(let i=0;i<keys.length;i++){
-    const k=keys[i];toast('Importing '+(i+1)+' of '+keys.length+'…');
+    const gk=keys[i];const k=gk.split('@')[0],uid=gk.split('@')[1];toast('Importing '+(i+1)+' of '+keys.length+'…');
     try{
-      const d=compDoc(k);const body=d?stripId(d):{unit:S.unit,cat:(compFind(k)||{cat:{}}).cat.id,key:k,docs:[],hard:false};
+      const d=compDoc(k,uid);const body=d?stripId(d):{unit:uid,cat:(compFind(k)||{cat:{}}).cat.id,key:k,docs:[],hard:false};
       body.docs=(body.docs||[]).slice();
-      for(const f of groups[k]){
+      for(const f of groups[gk]){
         if(body.docs.some(function(x){return x.name===f.name;}))continue;
         if(f.size>8*1024*1024){skip.push(f.name+' (over 8 MB)');continue;}
         const isPdf=/pdf/i.test(f.type)||/\.pdf$/i.test(f.name);
@@ -1829,10 +1842,10 @@ async function compImport(files){
         body.docs.push({id:await uploadPhoto(blob),type:isPdf?'pdf':'image',mime:isPdf?'application/pdf':'image/jpeg',name:f.name});
       }
       body.updatedAt=new Date().toISOString();body.by=S.uid||'';
-      await writeDoc('comp',compKey(S.unit,k),body);ok++;
+      await writeDoc('comp',compKey(uid,k),body);ok++;
     }catch(e){skip.push(k);}
   }
-  toast('Imported into '+ok+' item'+(ok===1?'':'s')+(skip.length?'. Not matched: '+skip.slice(0,3).join(', ')+(skip.length>3?' and '+(skip.length-3)+' more':''):'.')+' Photos and files upload in the background – keep the app open a few minutes.');
+  toast((certF?certF+' certificate PDF'+(certF>1?'s':'')+' attached to '+certN+' equipment records. ':'')+'Imported into '+ok+' item'+(ok===1?'':'s')+(skip.length?'. Not matched: '+skip.slice(0,3).join(', ')+(skip.length>3?' and '+(skip.length-3)+' more':''):'.')+' Photos and files upload in the background – keep the app open a few minutes.');
   render();
 }
 
@@ -1842,6 +1855,7 @@ async function extClick(t){
   if(await tcalClick(t))return true;
   switch(a){
     case 'setrisk':setRisk(t.dataset.r);return true;
+    case 'opendoc':{const w=window.open('','_blank');try{const u=await videoUrl(t.dataset.id,t.dataset.mime||'application/pdf');if(w)w.location.href=u;else location.href=u;}catch(e){if(w)w.close();toast('The file is not on this device yet. Try again when online.');}return true;}
     case 'extmode':S.extMode=t.dataset.m;render();return true;
     case 'cardmode':S.cardMode=S.cardMode||{};S.cardMode[t.dataset.col]=t.dataset.m;render();return true;
     case 'ppemove':S.ppeMove={id:t.dataset.id,kind:t.dataset.k};render();return true;
@@ -2018,7 +2032,7 @@ function vRecList(col){
   let mode=S.recMode||'details';
   if(col==='ppe'||col==='visitors'||col==='firstaid'){S.cardMode=S.cardMode||{};mode=S.cardMode[col]||'cards';}
   if(col==='ext'){mode=S.extMode||'cards';rows.sort(function(a,b){return String(a.tag||'').localeCompare(String(b.tag||''),undefined,{numeric:true});});}
-  let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+(col==='trainings'?'<button type="button" class="btn" data-go="tcal">Training calendar</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase().replace('ppe','PPE'))+'</button>');
+  let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+(col==='trainings'?'<button type="button" class="btn" data-go="tcal">Training calendar</button>':'')+(col==='certs'&&can('write')?'<button type="button" class="btn" data-act="compimport">'+ic('down',18)+'Import certificate PDFs</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase().replace('ppe','PPE'))+'</button>');
   x+='<div class="content">'+banners();
   if(!rows.length)return x+'<div class="panel"><div class="empty">No '+h(R.label.toLowerCase())+' yet for '+h(unitName())+'. Use Add '+h(R.one.toLowerCase().replace('ppe','PPE'))+' to create the first one.'+(col==='ppe'&&can('write')?' <button type="button" class="btn small" data-act="ppeseed" style="margin-left:6px">Add the standard PPE list</button>':'')+'</div></div></div>';
   if(col==='ext'){x+='<div class="btnrow" style="justify-content:flex-end"><div class="seg" role="group" aria-label="View"><button type="button" data-act="extmode" data-m="cards" aria-pressed="'+(mode==='cards')+'">Cards</button><button type="button" data-act="extmode" data-m="details" aria-pressed="'+(mode==='details')+'">Table</button></div></div>';if(mode==='cards')return x+extList(rows)+'</div>';}
@@ -2106,7 +2120,7 @@ function vRecView(){
   }
   right+=pdfButtons(R.one.replace(/[^A-Za-z]+/g,'-')+'-'+(r.no||r.date||'').replace(/[^0-9A-Za-z]+/g,'-'),shareText(col,r));
   let x=head(R.one+(r.no?' · '+r.no:''),unitName(r.unit),right);
-  x+='<div class="content">'+banners()+'<div class="sheetwrap">'+recSheet(col,r)+'</div>';
+  x+='<div class="content">'+banners()+((r.docs||[]).length?'<div class="btnrow">'+r.docs.map(function(dc,i){return '<button type="button" class="btn" data-act="opendoc" data-id="'+h(dc.id)+'" data-mime="'+h(dc.mime||'application/pdf')+'">'+ic('down',18)+'Open '+h(dc.name||('document '+(i+1)))+'</button>';}).join('')+'</div>':'')+'<div class="sheetwrap">'+recSheet(col,r)+'</div>';
   if(can('write'))x+='<div class="btnrow"><button type="button" class="btn danger small" data-act="delrec" data-col="'+col+'" data-id="'+h(r.id)+'">'+(S.confirmDel===r.id?'Tap again to delete':'Delete')+'</button></div>';
   return x+'</div>';
 }
@@ -2135,6 +2149,7 @@ function recSheet(col,r){
     if(f.t==='photos'&&v&&v.length)x+='<div class="sec">'+h(f.l)+'</div><div class="pgrid">'+v.map(function(p){return '<img src="'+photoUrl(p)+'" alt="" crossorigin="anonymous">';}).join('')+'</div>';
     if(f.t==='people'){const ps=v||[];x+='<div class="sec">'+h(f.l)+' ('+ps.length+')</div><table><thead><tr><th style="width:44px">S.No</th><th>Name</th><th>Emp. ID</th><th>Department</th><th style="width:120px">Signature</th></tr></thead><tbody>'+(ps.length?ps:[{},{},{}]).map(function(p,i){return '<tr><td>'+(i+1)+'</td><td>'+h(p.name)+'</td><td>'+h(p.emp)+'</td><td>'+h(p.dept)+'</td><td></td></tr>';}).join('')+'</tbody></table>';}
   });
+  if(col==='certs'&&(r.tcNo||r.plant||(r.docs||[]).length))x+='<div style="font-size:12.5px">'+(r.plant?'<b>Plant:</b> '+h(r.plant)+' · ':'')+(r.tcNo?'<b>Certificate no.:</b> '+h(r.tcNo)+' · ':'')+((r.docs||[]).length?'<b>Soft copy:</b> '+h(r.docs.map(function(d){return d.name;}).join(', ')):'<b>Soft copy:</b> not attached yet')+'</div>';
   if(col==='ppe'){const sz=ppeSizes(r);x+='<div class="sec">Stock</div><table><thead><tr><th>Size</th><th>In stock</th></tr></thead><tbody>'+(sz.length?sz.map(function(z){return '<tr><td>'+h(z)+'</td><td class="num">'+ppeBal(r,z)+'</td></tr>';}).join(''):'')+'<tr><td><b>Total</b></td><td class="num"><b>'+ppeTotal(r)+'</b></td></tr></tbody></table>';
     const mv=ppeMoves(r).slice(-25).reverse();if(mv.length)x+='<div class="sec">Received and issued (latest '+mv.length+')</div><table><thead><tr><th>Date</th><th>In / out</th><th>Size</th><th>Qty</th><th>To / from</th><th>Department</th></tr></thead><tbody>'+mv.map(function(m){return '<tr><td>'+fmtD(m.date)+'</td><td>'+(m.kind==='in'?'Received':'Issued')+'</td><td>'+h(m.size)+'</td><td class="num">'+h(m.qty)+'</td><td>'+h(m.kind==='in'?m.ref:[m.name,m.emp].filter(Boolean).join(' · '))+'</td><td>'+h(m.dept)+'</td></tr>';}).join('')+'</tbody></table>';}
   if(col==='ext')x+='<div style="font-size:13px"><b>Condition:</b> '+h(extCond(r)||'Not checked')+'</div>';
