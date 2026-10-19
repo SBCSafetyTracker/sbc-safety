@@ -1113,7 +1113,7 @@ function markEditor(f){
   return x;
 }
 function vCapture(){
-  if(!(S.form&&S.form.kind==='capture')){S.form={kind:'capture',draft:{dept:'',kind:'Unsafe condition',risk:'Medium',note:'',label:'',owner:'',target:addDays(today(),3)},media:[]};S.form.autoTarget=S.form.draft.target;}
+  if(!(S.form&&S.form.kind==='capture')){S.form={kind:'capture',draft:{dept:'',kind:'Unsafe condition',risk:'Medium',note:'',action:'',label:'',owner:'',target:addDays(today(),3)},media:[]};S.form.autoTarget=S.form.draft.target;}
   const f=S.form;const d=f.draft;const edit=!!f.editId;
   if(f.markIdx!=null&&f.media[f.markIdx])return markEditor(f);
   const cancel=edit?'<button type="button" class="btn ghost" data-act="capcancel">Cancel</button>':'<button type="button" class="btn ghost" data-go="'+(S.prev||'home')+'">Cancel</button>';
@@ -1130,14 +1130,15 @@ function vCapture(){
   x+='<div class="field wide"><label for="caplabel">Issue label on the photo</label><input class="in" id="caplabel" maxlength="'+LABEL_MAX+'" value="'+h(d.label||'')+'" placeholder="e.g. Missing guard, Oil spill, No helmet"><small>A few words shown on top of the photo so anyone sees the problem at a glance.</small></div>';
   if(d.dept&&(d.label||d.note)){const rp=repeatsOf({id:f.editId||'_new',unit:f.unitId||S.unit,dept:d.dept,label:d.label,note:d.note,date:d.date||today()});if(rp.length)x+='<div class="field wide"><div class="banner">Repeat problem: this looks like '+rp.length+' earlier observation'+(rp.length>1?'s':'')+' in '+h(d.dept)+' in the last 90 days ('+rp.slice(0,3).map(function(r){return fmtD(r.date);}).join(', ')+'). Look for the root cause, not just this spot.</div></div>';}
   x+='<div class="field wide"><label for="capnote">What did you see?</label><textarea class="in" id="capnote" placeholder="Short note – the phone keyboard\'s mic button works for speaking">'+h(d.note)+'</textarea>';
-  if(S.sample)x+='<div class="btnrow"><button type="button" class="btn small" data-act="fixwording">Fix wording</button></div>';
+  x+='<div class="btnrow"><button type="button" class="btn small" data-act="fixwording">✨ Fix wording</button><small style="color:var(--muted)">Tamil, English or mixed – turns your note into report English and suggests the action.</small></div>';
   x+='</div>';
+  x+='<div class="field wide"><label for="capaction">Action needed (suggestion)</label><textarea class="in" id="capaction" rows="2" placeholder="What should be done to fix it">'+h(d.action||'')+'</textarea></div>';
   x+='<div class="field"><label for="capowner">Responsible (HOD / supervisor)</label><input class="in" id="capowner" value="'+h(d.owner)+'" placeholder="Name"></div>';
   x+='<div class="field"><label for="captarget">Target date to close</label><input class="in" type="date" id="captarget" value="'+h(d.target)+'"></div>';
   x+='</form><div class="sticky-save">'+cancel+'<button type="button" class="btn primary" data-act="capsave" id="capsave">'+(edit?'Save changes':'Save observation')+'</button></div></div>';
   return x;
 }
-function readCapture(){const f=S.form;if(!f||f.kind!=='capture')return;const d=f.draft;const n=document.getElementById('capnote');if(n)d.note=n.value;const o=document.getElementById('capowner');if(o)d.owner=o.value;const t=document.getElementById('captarget');if(t)d.target=t.value;const l=document.getElementById('caplabel');if(l)d.label=l.value;}
+function readCapture(){const f=S.form;if(!f||f.kind!=='capture')return;const d=f.draft;const n=document.getElementById('capnote');if(n)d.note=n.value;const ac=document.getElementById('capaction');if(ac)d.action=ac.value;const o=document.getElementById('capowner');if(o)d.owner=o.value;const t=document.getElementById('captarget');if(t)d.target=t.value;const l=document.getElementById('caplabel');if(l)d.label=l.value;}
 async function addCapFiles(files){
   if(!S.form||S.form.kind!=='capture')return;readCapture();
   const items=await readFiles(files,S.form);
@@ -1147,7 +1148,7 @@ async function addCapFiles(files){
 function startEdit(id){
   if(!isAdmin()){toast('Only the admin can edit observations.');return;}
   const o=(S.data.obs||[]).find(function(r){return r.id===id;});if(!o)return;
-  S.form={kind:'capture',editId:id,unitId:o.unit,draft:{dept:o.dept||'',kind:o.kind||'Unsafe condition',risk:o.risk||'',note:o.note||'',label:o.label||'',owner:o.owner||'',target:o.target||'',date:o.date,no:o.no||''},
+  S.form={kind:'capture',editId:id,unitId:o.unit,draft:{dept:o.dept||'',kind:o.kind||'Unsafe condition',risk:o.risk||'',note:o.note||'',action:o.action||'',label:o.label||'',owner:o.owner||'',target:o.target||'',date:o.date,no:o.no||''},
     media:obsMedia(o,false).map(function(m){return Object.assign({key:newKey()},JSON.parse(JSON.stringify(m)));})};
   S.prev='obsDetail';S.hist=S.hist||[];S.hist.push({v:'obsDetail',arg:{id:id}});S.view='capture';S.arg={id:id};render();window.scrollTo(0,0);
 }
@@ -1164,12 +1165,12 @@ async function saveCapture(){
     if(f.editId){
       const o=(S.data.obs||[]).find(function(r){return r.id===f.editId;});if(!o)throw new Error('gone');
       id=o.id;body=stripId(o);
-      body.dept=d.dept;body.kind=d.kind;body.risk=d.risk||'';body.note=d.note.trim();body.label=(d.label||'').trim();body.owner=(d.owner||'').trim();body.target=d.target||'';
+      body.dept=d.dept;body.kind=d.kind;body.risk=d.risk||'';body.note=d.note.trim();body.action=(d.action||'').trim();body.label=(d.label||'').trim();body.owner=(d.owner||'').trim();body.target=d.target||'';
       body.media=media;if(cover)body.photo=cover;else delete body.photo;
       body.updatedAt=new Date().toISOString();body.editedBy=S.uid||'';
     }else{
       id=rid();const now=new Date();
-      body={unit:S.unit,dept:d.dept,kind:d.kind,risk:d.risk||'',note:d.note.trim(),label:(d.label||'').trim(),owner:(d.owner||'').trim(),target:d.target||'',status:'Open',date:iso(now),createdAt:now.toISOString(),by:S.uid||'',media:media};
+      body={unit:S.unit,dept:d.dept,kind:d.kind,risk:d.risk||'',note:d.note.trim(),action:(d.action||'').trim(),label:(d.label||'').trim(),owner:(d.owner||'').trim(),target:d.target||'',status:'Open',date:iso(now),createdAt:now.toISOString(),by:S.uid||'',media:media};
       if(cover)body.photo=cover;
     }
     await writeDoc('obs',id,body);
@@ -1180,14 +1181,62 @@ async function saveCapture(){
     if(btn){btn.disabled=false;btn.textContent=f.editId?'Save changes':'Save observation';}
   }
 }
+/* ---------- AI wording (Gemini key kept on this device only) ---------- */
+function gemKey(){try{return localStorage.getItem('sbc_gemkey')||'';}catch(e){return '';}}
+async function aiText(prompt){
+  if(S.sample){const r=await S.sample(prompt,{modelTier:'quick'});return r.text||'';}
+  const key=gemKey();if(!key){const e=new Error('nokey');throw e;}
+  let last=null;
+  for(const m of ['gemini-2.5-flash','gemini-2.0-flash','gemini-flash-latest']){
+    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,responseMimeType:'application/json'}})});
+    if(res.status===404){last=new Error('model');continue;}
+    if(!res.ok){const e=new Error(res.status===400||res.status===403?'badkey':'net');throw e;}
+    const j=await res.json();return ((((j.candidates||[])[0]||{}).content||{}).parts||[]).map(function(p){return p.text||'';}).join('');
+  }
+  throw last||new Error('net');
+}
+async function aiWording(o){
+  const prompt='You help the safety manager of an aluminium die casting factory write observation reports. The rough note below may be Tamil, English or mixed, with spelling mistakes. Rewrite it as clear, professional English for a safety observation report (one to three short sentences). Keep every fact. Do not add names, numbers, places or details that are not given. Then write a short practical corrective action. Also give a 2-4 word issue label. Reply ONLY as JSON: {"observation":"...","action":"...","label":"..."}\n\nDepartment: '+(o.dept||'')+'\nType: '+(o.kind||'')+'\nRough note: '+(o.note||'')+(o.action?'\nRough action: '+o.action:'');
+  const t=await aiText(prompt);const m=t.match(/\{[\s\S]*\}/);const j=JSON.parse(m?m[0]:t);
+  return {note:String(j.observation||'').trim(),action:String(j.action||'').trim(),label:String(j.label||'').trim()};
+}
+function aiErr(e){const c=e&&e.message;toast(c==='nokey'?'Add the AI key in Settings → AI wording first.':c==='badkey'?'The AI key was not accepted. Check it in Settings → AI wording.':'Could not fix the wording right now. Check the internet and try again.');}
 async function fixWording(){
   readCapture();const d=S.form.draft;if(!d.note.trim()){toast('Write a note first.');return;}
   const b=document.querySelector('[data-act="fixwording"]');if(b){b.disabled=true;b.textContent='Fixing…';}
   try{
-    const r=await S.sample('Rewrite this factory safety observation in clear, short, professional English for a safety report. Keep every fact, add nothing new, no preamble. Return only the rewritten text.\n\nObservation: '+d.note,{modelTier:'quick'});
-    d.note=(r.text||d.note).trim();const n=document.getElementById('capnote');if(n)n.value=d.note;
-  }catch(e){if(e&&e.code==='not_granted'){S.sample=null;}toast('Could not fix the wording right now.');}
-  if(b){b.disabled=false;b.textContent='Fix wording';}
+    const r=await aiWording(d);
+    if(r.note){d.noteRaw=d.noteRaw||d.note;d.note=r.note;}if(r.action&&!(d.action||'').trim())d.action=r.action;if(r.label&&!(d.label||'').trim())d.label=r.label.slice(0,LABEL_MAX);
+    render();toast('Wording fixed. Read it once before saving.');
+  }catch(e){aiErr(e);}
+  const b2=document.querySelector('[data-act="fixwording"]');if(b2){b2.disabled=false;b2.textContent='✨ Fix wording';}
+}
+async function fixSaved(id,btn){
+  const o=(S.data.obs||[]).find(function(r){return r.id===id;});if(!o)return;
+  if(btn){btn.disabled=true;btn.textContent='Fixing…';}
+  try{
+    const r=await aiWording(o);if(!r.note)throw new Error('net');
+    const b=stripId(o);if(!b.noteRaw)b.noteRaw=o.note;b.note=r.note;if(r.action&&!o.action)b.action=r.action;if(r.label&&!o.label)b.label=r.label.slice(0,LABEL_MAX);
+    b.updatedAt=new Date().toISOString();b.editedBy=S.uid||'';
+    await writeDoc('obs',id,b);toast('Wording fixed. Your original note is kept – use Edit to change anything.');
+  }catch(e){aiErr(e);if(btn){btn.disabled=false;btn.textContent='✨ Fix wording';}}
+}
+async function fixAllRecent(btn){
+  const rows=list('obs').filter(function(o){return o.note&&!o.noteRaw&&!o.action;});
+  if(!rows.length){toast('Nothing to fix – every observation already has report wording.');return;}
+  if(btn)btn.disabled=true;let n=0;
+  for(const o of rows){if(btn)btn.textContent='Fixing '+(n+1)+' of '+rows.length+'…';try{const r=await aiWording(o);if(!r.note)continue;const b=stripId(o);b.noteRaw=o.note;b.note=r.note;if(r.action)b.action=r.action;if(r.label&&!o.label)b.label=r.label.slice(0,LABEL_MAX);b.updatedAt=new Date().toISOString();await writeDoc('obs',o.id,b);n++;}catch(e){aiErr(e);break;}}
+  toast(n+' observation(s) reworded. Originals are kept.');if(btn){btn.disabled=false;btn.textContent='✨ Fix wording of all rough observations';}
+}
+function aiPanel(){
+  const k=gemKey();
+  return '<section class="panel"><header><h2>AI wording (Fix wording button)</h2><small style="color:var(--muted)">Paste your Gemini API key from aistudio.google.com. It is kept only on this phone or laptop – add it once on each device.</small></header><div class="body" style="display:flex;flex-direction:column;gap:12px"><div class="form"><div class="field wide"><label for="s_gem">Gemini API key</label><input class="in" id="s_gem" type="password" autocomplete="off" value="'+h(k)+'" placeholder="Paste the key here"></div></div><div class="btnrow" style="justify-content:flex-end">'+(k?'<span class="pill ok">Key saved on this device</span>':'<span class="pill plain">No key on this device</span>')+'<button type="button" class="btn" data-act="gemtest">Save and test</button>'+(isAdmin()?'<button type="button" class="btn primary" data-act="fixall">✨ Fix wording of all rough observations</button>':'')+'</div></div></section>';
+}
+async function gemSaveTest(btn){
+  const v=(document.getElementById('s_gem')||{}).value||'';try{if(v.trim())localStorage.setItem('sbc_gemkey',v.trim());else localStorage.removeItem('sbc_gemkey');}catch(e){}
+  if(!v.trim()){render();toast('Key removed from this device.');return;}
+  if(btn){btn.disabled=true;btn.textContent='Testing…';}
+  try{const r=await aiWording({dept:'GDC',kind:'Unsafe condition',note:'oil spill near machine walkway la irukku'});render();toast(r.note?'Key works. Test: '+r.note:'Key saved.');}catch(e){render();aiErr(e);}
 }
 
 /* ---------- Observations list: view modes ---------- */
@@ -1299,7 +1348,7 @@ function vObsDetail(){
   let right='';
   right+='<div class="seg onav" role="group" aria-label="Move between observations"><button type="button" data-act="oprev"'+(pos<=0?' disabled':'')+'>‹ Prev</button><span class="pos">'+(pos+1)+' of '+ord.length+'</span><button type="button" data-act="onext"'+(pos<0||pos>=ord.length-1?' disabled':'')+'>Next ›</button></div>';
   right+='<div class="seg" role="group" aria-label="View"><button type="button" data-act="dmode" data-m="app" aria-pressed="'+(mode==='app')+'">App view</button><button type="button" data-act="dmode" data-m="report" aria-pressed="'+(mode==='report')+'">Report view</button></div>';
-  if(isAdmin())right+='<button type="button" class="btn" data-act="obsedit" data-id="'+h(o.id)+'">Edit</button>';
+  if(isAdmin())right+='<button type="button" class="btn" data-act="obsfix" data-id="'+h(o.id)+'">✨ Fix wording</button><button type="button" class="btn" data-act="obsedit" data-id="'+h(o.id)+'">Edit</button>';
   if(mode==='report')right+=pdfButtons('Observation-'+(o.date||'')+'-'+String(o.dept||'').replace(/[^A-Za-z0-9]+/g,'-'),obsShareText(o));
   let x=head(o.dept+' · '+o.kind,'Raised '+fmtD(o.date)+(o.owner?' · responsible: '+o.owner:'')+(o.updatedAt?' · edited '+fmtD(String(o.updatedAt).slice(0,10)):''),right);
   if(mode==='report')return x+'<div class="content">'+banners()+'<div class="sheetwrap">'+obsSheet(o)+'</div></div>';
@@ -1355,6 +1404,9 @@ async function obsClick(t,e){
     case 'markcancel':f.markIdx=null;f.markDraft=null;render();return true;
     case 'capcancel':{const id=f&&f.editId;S.form=null;go('obsDetail',{id:id});return true;}
     case 'obsedit':startEdit(t.dataset.id);return true;
+    case 'obsfix':fixSaved(t.dataset.id,t);return true;
+    case 'gemtest':gemSaveTest(t);return true;
+    case 'fixall':fixAllRecent(t);return true;
     case 'mprev':stepMedia(t.dataset.side,-1);return true;
     case 'mnext':stepMedia(t.dataset.side,1);return true;
     case 'mjump':stepMedia(t.dataset.side,0,+t.dataset.i);return true;
@@ -2511,6 +2563,7 @@ function vSettings(){
   x+='<div class="tablewrap"><table class="list"><thead><tr><th>Person</th><th>Role</th><th>Units</th><th>Departments (HOD)</th><th></th></tr></thead><tbody>'+(ids.length?ids.map(function(id){const r=st.roles[id];return '<tr><td data-name="'+h(id)+'">'+h(S.names[id]||'…')+'</td><td><select class="in" data-role="'+h(id)+'" aria-label="Role">'+['officer','hod','management','admin'].map(function(k){return '<option value="'+k+'"'+(r.role===k?' selected':'')+'>'+ROLE_LABEL[k]+'</option>';}).join('')+'</select></td><td><select class="in" data-runit="'+h(id)+'" aria-label="Unit"><option value="">All units</option>'+st.units.map(function(u){return '<option value="'+u.id+'"'+((r.units||[])[0]===u.id?' selected':'')+'>'+h(u.name)+'</option>';}).join('')+'</select></td><td><input class="in" data-rdepts="'+h(id)+'" value="'+h((r.depts||[]).join(', '))+'" placeholder="e.g. PDC, GDC" aria-label="Departments"></td><td><button type="button" class="btn small ghost" data-act="rmperson" data-id="'+h(id)+'">Remove</button></td></tr>';}).join(''):'<tr><td colspan="5" style="color:var(--muted)">Only you (owner, Admin) for now.</td></tr>')+'</tbody></table></div>';
   if(ids.length)x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="saveroles">Save roles</button></div>';
   x+='</div></section>';
+  x+=aiPanel();
   x+='<section class="panel"><header><h2>Backup and restore</h2></header><div class="body" style="display:flex;flex-direction:column;gap:12px"><small style="color:var(--muted)">The backup file holds all records and settings (photos stay stored in the app). Keep a copy on your D drive or Google Drive every week.</small><div class="btnrow">'+(S.dl?'<button type="button" class="btn" data-act="backup">'+ic('down',18)+'Download backup</button>':'')+'<label class="btn filebtn">Restore from backup file<input type="file" accept="application/json,.json" id="restorefile"></label></div>'+(S.restore?'<div class="banner">Restore will add or overwrite '+S.restore.count+' records from '+h(S.restore.name)+'. <button type="button" class="btn small" data-act="dorestore">Restore now</button> <button type="button" class="btn small ghost" data-act="cancelrestore">Cancel</button></div>':'')+'</div></section>';
   return x+'</div>';
 }
