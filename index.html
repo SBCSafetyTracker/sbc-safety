@@ -1646,11 +1646,13 @@ async function logSent(id,to,field){
 }
 function contactsPanel(){
   const st=S.settings;
-  let x='<section class="panel"><header><h2>Department contacts</h2><small style="color:var(--muted)">HOD and backup for each department. Picking a department in a new observation fills in the HOD, and the Send buttons go to these numbers.</small></header><div class="body" style="display:flex;flex-direction:column;gap:18px">';
+  let x='<section class="panel"><header><h2>Departments and contacts</h2><small style="color:var(--muted)">Type over a department name to rename it (its observations follow). Fill the last empty row to add a new department. Picking a department in a new observation fills in the HOD, and the Send buttons go to these numbers.</small></header><div class="body" style="display:flex;flex-direction:column;gap:18px">';
   st.units.forEach(function(u,ui){
     x+='<div><b style="display:block;margin-bottom:8px">'+h(u.name)+'</b><div class="tablewrap"><table class="list ctab"><thead><tr><th>Department</th><th>HOD name</th><th>HOD mobile</th><th>HOD email</th><th>Backup name</th><th>Backup mobile</th><th>Backup email</th></tr></thead><tbody>';
     u.depts.forEach(function(d,di){const c=(u.contacts||{})[d]||{};const f=function(k,type,ph){return '<td><input class="in" type="'+type+'" data-ct="'+ui+'|'+di+'|'+k+'" value="'+h(c[k]||'')+'" placeholder="'+ph+'" aria-label="'+h(d)+' '+k+'"></td>';};
-      x+='<tr><td><b>'+h(d)+'</b></td>'+f('hod','text','Name')+f('hodMob','tel','Mobile')+f('hodMail','email','name@sbcmail.in')+f('bk','text','Name')+f('bkMob','tel','Mobile')+f('bkMail','email','Email')+'</tr>';});
+      x+='<tr><td><input class="in" data-dn="'+ui+'|'+di+'" value="'+h(d)+'" aria-label="Department name" style="font-weight:600;min-width:210px"></td>'+f('hod','text','Name')+f('hodMob','tel','Mobile')+f('hodMail','email','name@sbcmail.in')+f('bk','text','Name')+f('bkMob','tel','Mobile')+f('bkMail','email','Email')+'</tr>';});
+    const fn=function(k,type,ph){return '<td><input class="in" type="'+type+'" data-ctn="'+ui+'|'+k+'" placeholder="'+ph+'" aria-label="New department '+k+'"></td>';};
+    x+='<tr class="newdept"><td><input class="in" data-dnew="'+ui+'" placeholder="+ Add department" aria-label="New department name" style="min-width:210px"></td>'+fn('hod','text','Name')+fn('hodMob','tel','Mobile')+fn('hodMail','email','name@sbcmail.in')+fn('bk','text','Name')+fn('bkMob','tel','Mobile')+fn('bkMail','email','Email')+'</tr>';
     x+='</tbody></table></div></div>';
   });
   x+='<div class="form"><div class="field"><label for="s_dirmail">Directors\' email(s) for the weekly scorecard</label><input class="in" id="s_dirmail" type="email" multiple value="'+h(st.dirMail||'')+'" placeholder="e.g. stalin@sbcmail.in, lenin@sbcmail.in"></div><div class="field"><label for="s_dirmob">Directors\' WhatsApp number (or group admin)</label><input class="in" id="s_dirmob" type="tel" value="'+h(st.dirMob||'')+'" placeholder="Mobile number"></div></div>';
@@ -1661,7 +1663,18 @@ async function saveContacts(){
   const st=JSON.parse(JSON.stringify(S.settings));
   document.querySelectorAll('[data-ct]').forEach(function(el){const p=el.dataset.ct.split('|');const u=st.units[+p[0]];const d=u&&u.depts[+p[1]];if(!d)return;u.contacts=u.contacts||{};u.contacts[d]=u.contacts[d]||{};u.contacts[d][p[2]]=el.value.trim();});
   const dm=document.getElementById('s_dirmail');if(dm)st.dirMail=dm.value.trim();const dmo=document.getElementById('s_dirmob');if(dmo)st.dirMob=dmo.value.trim();
-  await putSettings(st);toast('Contacts saved.');
+  const renames=[];let added=0,skipped=0;
+  document.querySelectorAll('[data-dn]').forEach(function(el){const p=el.dataset.dn.split('|');const u=st.units[+p[0]];const di=+p[1];const old=u&&u.depts[di];const nw=el.value.trim();if(!old||!nw||nw===old)return;
+    if(u.depts.indexOf(nw)>=0){skipped++;return;}
+    u.depts[di]=nw;u.contacts=u.contacts||{};if(u.contacts[old]){u.contacts[nw]=u.contacts[old];delete u.contacts[old];}
+    if(u.zones)u.zones=u.zones.map(function(z){return z===old?nw:z;});renames.push({unit:u.id,old:old,nw:nw});});
+  document.querySelectorAll('[data-dnew]').forEach(function(el){const ui=+el.dataset.dnew;const u=st.units[ui];const nw=el.value.trim();if(!u||!nw)return;
+    if(u.depts.indexOf(nw)>=0){skipped++;return;}
+    u.depts.push(nw);u.contacts=u.contacts||{};const c={};document.querySelectorAll('[data-ctn^="'+ui+'|"]').forEach(function(i){c[i.dataset.ctn.split('|')[1]]=i.value.trim();});u.contacts[nw]=c;added++;});
+  await putSettings(st);
+  let moved=0;
+  for(const r of renames){for(const o of (S.data.obs||[]).filter(function(o){return o.unit===r.unit&&o.dept===r.old;})){const b=stripId(o);b.dept=r.nw;try{await writeDoc('obs',o.id,b);moved++;}catch(e){}}}
+  toast('Saved.'+(added?' '+added+' department added.':'')+(renames.length?' '+renames.length+' renamed'+(moved?', '+moved+' observation(s) moved to the new name':'')+'.':'')+(skipped?' '+skipped+' name(s) already exist – not changed.':''));
 }
 function autoFillOwner(){
   const f=S.form;if(!f||f.kind!=='capture')return;const d=f.draft;const c=deptContact(f.unitId||S.unit,d.dept);
