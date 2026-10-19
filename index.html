@@ -820,6 +820,7 @@ function viewHtml(v){
     case 'recView':return vRecView();
     case 'reports':return vReports();
     case 'repDaily':return vRepDaily();
+    case 'repWeekly':return vRepWeekly();
     case 'repSummary':return vRepSummary();
     case 'repRegister':return vRepRegister(S.arg.col);
     case 'zs':return vZs();
@@ -1201,7 +1202,7 @@ function vObs(){
   let right='<span class="desk-only">'+deskUnit()+'</span>'+(can('capture')?'<button type="button" class="btn primary" data-go="capture">'+ic('plus',18)+'New observation</button>':'');
   let x=head('Observations','Unsafe acts and conditions, with before and after photos',right);
   x+='<div class="content">'+banners()+'<div class="btnrow" style="justify-content:space-between"><div class="seg" role="group" aria-label="Show">'+['Open','Overdue','Closed','All'].map(function(k){return '<button type="button" data-filter="'+k+'" aria-pressed="'+(fl===k)+'">'+k+'</button>';}).join('')+'</div>';
-  x+='<div class="btnrow"><label for="deptf" class="hidden-sr">Department</label><select class="in" id="deptf" style="min-height:40px;width:auto"><option value="">All departments</option>'+unitObj().depts.map(function(d){return '<option'+(d===dp?' selected':'')+'>'+h(d)+'</option>';}).join('')+'</select>'+modeSelect('viewmode',mode)+'<button type="button" class="btn small" data-go="repDaily">Today\'s report</button></div></div>';
+  x+='<div class="btnrow"><label for="deptf" class="hidden-sr">Department</label><select class="in" id="deptf" style="min-height:40px;width:auto"><option value="">All departments</option>'+unitObj().depts.map(function(d){return '<option'+(d===dp?' selected':'')+'>'+h(d)+'</option>';}).join('')+'</select>'+modeSelect('viewmode',mode)+'<button type="button" class="btn small" data-go="repDaily">Today\'s report</button><button type="button" class="btn small" data-go="repWeekly">Weekly report</button></div></div>';
   if(S.queue.length)x+='<div class="panel"><header><h2>Waiting to send</h2></header><div class="rows">'+S.queue.map(function(q){return '<div class="row" style="cursor:default"><span class="t"><b>'+h(q.body.note||'Observation')+'</b><small>'+h(q.body.dept)+' · saved on this phone</small></span><span class="pill warn">Not sent</span></div>';}).join('')+'</div></div>';
   if(!rows.length)return x+'<div class="panel"><div class="empty">No observations here yet. Tap New observation to add one with a photo – it appears here and on the daily report.</div></div></div>';
   if(mode==='report')x+=obsRegister(rows,fl,dp);
@@ -2296,6 +2297,7 @@ function vReports(){
   let x=head('Reports','Filled in from your records. Open one to see it exactly as it prints.','<span class="desk-only">'+deskUnit()+'</span>');
   x+='<div class="content">'+banners()+'<div class="cols2"><section class="panel"><header><h2>Daily and summary</h2></header><div class="rows">';
   x+=repRow('repDaily','','Daily observation report','Every day · before and after photos');
+  x+=repRow('repWeekly','','Weekly observation report','Monday to Saturday · all departments · send as PDF');
   x+=repRow('rep2S','','Weekly 2S zone score','Zone ranking, Sort and Set in order, change from last week');
   x+=repRow('repSummary','','Weekly / 15-day management summary','All units on one page');
   x+='</div></section><section class="panel"><header><h2>Per event</h2></header><div class="rows">';
@@ -2319,6 +2321,28 @@ function vRepDaily(){
   x+=obsTHead();
   x+=rows.length?rows.map(function(o,i){return obsTRow(o,i,false);}).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--paper-muted);padding:18px">No observations raised or closed on this date.</td></tr>';
   x+='</tbody></table>'+signBlock('Prepared by – OHSE Manager','Reviewed by – Plant Head')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
+  return x;
+}
+function monOf(s){const d=new Date(s+'T00:00:00');return addDays(s,-((d.getDay()+6)%7));}
+function defWeek(){const t=today(),w=new Date(t+'T00:00:00').getDay();return (w===6||w===0)?monOf(t):monOf(addDays(t,-7));}
+function vRepWeekly(){
+  const all=list('obs');const allMode=!!S.repWeekAll;const mon=S.repWeek||defWeek();
+  const dates=all.map(function(o){return String(o.date||'').slice(0,10);}).filter(Boolean).sort();
+  const from=allMode?(dates[0]||today()):mon,to=allMode?today():addDays(mon,6),sat=addDays(mon,5);
+  const label=allMode?'All observations up to '+fmtD(today()):'Week: '+fmtD(mon)+' to '+fmtD(sat);
+  const raised=all.filter(function(o){return inRange(o.date,from,to);});
+  const closedIn=all.filter(function(o){return o.status==='Closed'&&inRange(o.closedAt,from,to);});
+  const extra=closedIn.filter(function(o){return !inRange(o.date,from,to);});
+  const rows=raised.concat(extra).sort(function(a,b){return String(a.date).localeCompare(String(b.date))||String(a.dept).localeCompare(String(b.dept));});
+  const stillOpen=all.filter(function(o){return o.status!=='Closed';}).length,over=all.filter(function(o){return obsStatus(o)==='Overdue';}).length;
+  const text=S.settings.company+' – Weekly safety observation report\n'+unitName()+' · '+label+'\nRaised: '+raised.length+' · Closed: '+closedIn.length+' · Still open: '+stillOpen+' · Overdue: '+over;
+  const ctl='<div class="seg" role="group" aria-label="Period"><button type="button" data-wk="-1" aria-label="Previous week">‹ Prev</button><button type="button" data-wk="week" aria-pressed="'+(!allMode)+'">Week</button><button type="button" data-wk="1" aria-label="Next week"'+(!allMode&&mon>=monOf(today())?' disabled':'')+'>Next ›</button><button type="button" data-wk="all" aria-pressed="'+allMode+'">All to date</button></div>';
+  let x=head('Weekly observation report',unitName()+' · '+label,ctl+pdfButtons('Weekly-observation-'+(allMode?'to-'+today():mon),text));
+  x+='<div class="content">'+banners()+'<div class="sheetwrap"><article class="sheet wide" id="sheet">'+sheetHead(S.settings.docPrefix+'/WOR/'+(allMode?today():mon).replace(/-/g,''),allMode?'Up to '+fmtD(today()):fmtD(mon)+' – '+fmtD(sat))+'<h3 class="title">WEEKLY SAFETY OBSERVATION REPORT</h3>';
+  x+='<div style="text-align:center;color:var(--paper-muted)">'+h(label)+' · all departments</div>';
+  x+='<div class="stats"><div><b>'+raised.length+'</b><span>Raised</span></div><div><b>'+closedIn.length+'</b><span>Closed</span></div><div><b>'+stillOpen+'</b><span>Still open (all days)</span></div><div><b>'+over+'</b><span>Overdue</span></div></div>';
+  x+=obsTHead()+(rows.length?rows.map(function(o,i){return obsTRow(o,i,true);}).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--paper-muted);padding:18px">No observations raised or closed in this period.</td></tr>')+'</tbody></table>';
+  x+=signBlock('Prepared by – OHSE Manager','Reviewed by – Plant Head')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
   return x;
 }
 function inRange(s,a,b){s=String(s||'').slice(0,10);return s>=a&&s<=b;}
@@ -2537,7 +2561,7 @@ function parentOf(v,arg){
     case 'comp':case 'tcal':case 'zs':return {v:'records'};
     case 'ppeLog':return {v:'recList',arg:{col:'ppe'}};
     case 'zsForm':return {v:'zs'};
-    case 'repDaily':case 'repSummary':case 'rep2S':return {v:'reports'};
+    case 'repDaily':case 'repWeekly':case 'repSummary':case 'rep2S':return {v:'reports'};
     case 'settings':return {v:'more'};
   }
   return {v:'home'};
@@ -2569,7 +2593,7 @@ function go(v,arg){
   render();window.scrollTo(0,0);
 }
 document.addEventListener('click',async function(e){
-  const t=e.target.closest('[data-go],[data-act],[data-unit],[data-filter],[data-walk],[data-capdept],[data-capkind],[data-range],[data-zsc],[data-zsweek]');
+  const t=e.target.closest('[data-go],[data-act],[data-unit],[data-filter],[data-walk],[data-capdept],[data-capkind],[data-range],[data-wk],[data-zsc],[data-zsweek]');
   if(!t)return;
   if(t.dataset.act==='navback'){if(S.form&&S.form.kind==='capture'&&S.form.markIdx!=null){S.form.markIdx=null;S.form.markDraft=null;render();return;}if(S.lb){S.lb=null;render();return;}navBack();return;}
   if(await obsClick(t,e))return;
@@ -2587,6 +2611,7 @@ document.addEventListener('click',async function(e){
   if(t.dataset.unit){S.unit=t.dataset.unit;try{localStorage.setItem('sbc_unit',S.unit);}catch(err){}if(S.form&&S.form.kind==='capture'){readCapture();S.form.draft.dept='';}render();return;}
   if(t.dataset.capdept){readCapture();S.form.draft.dept=t.dataset.capdept;autoFillOwner();render();return;}
   if(t.dataset.capkind){readCapture();S.form.draft.kind=t.dataset.capkind;render();return;}
+  if(t.dataset.wk){const k=t.dataset.wk;if(k==='all')S.repWeekAll=true;else if(k==='week')S.repWeekAll=false;else{S.repWeekAll=false;S.repWeek=addDays(S.repWeek||defWeek(),7*(+k));}render();return;}
   if(t.dataset.range){const n=+t.dataset.range;S.range={from:addDays(today(),-(n-1)),to:today()};render();return;}
   if(t.dataset.walk){toggleWalk(t.dataset.walk);return;}
   if(t.dataset.filter&&!t.dataset.go){S.filter=t.dataset.filter;render();return;}
@@ -2594,6 +2619,7 @@ document.addEventListener('click',async function(e){
     const v=t.dataset.go;if(t.dataset.filter)S.filter=t.dataset.filter;
     if(v==='capture'){S.prev=S.view==='capture'?S.prev:S.view;S.hist=S.hist||[];if(S.view!=='capture')S.hist.push({v:S.view,arg:S.arg});S.form=null;S.view='capture';render();window.scrollTo(0,0);return;}
     if(v==='repDaily')S.repDate=today();
+    if(v==='repWeekly'){S.repWeek=defWeek();S.repWeekAll=false;}
     go(v,(t.dataset.col||t.dataset.id)?{col:t.dataset.col,id:t.dataset.id}:null);return;
   }
   const a=t.dataset.act;
