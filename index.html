@@ -399,6 +399,7 @@ table.list .two{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vert
 .sheet .qrrow{display:flex;gap:12px;align-items:center;font-size:12px;border:1px solid var(--paper-line);padding:8px 10px}
 .sheet .qrrow span{color:var(--paper-muted)}
 .sheet img.qrb{width:84px;height:84px;flex:none;image-rendering:pixelated;background:none}
+.sheet table.obst{table-layout:fixed}.sheet table.obst th{overflow-wrap:normal;white-space:nowrap}.sheet table.obst td{overflow-wrap:break-word}.sheet table.obst td.nw{white-space:nowrap}.sheet table.obst .dp{font-size:13.5px;font-weight:700}.sheet table.obst .dk{display:block;color:var(--paper-muted);white-space:nowrap}
 .sheet td img.qrs{width:58px;height:58px;margin-top:6px;image-rendering:pixelated;background:none}
 .sheet .qrnote{font-size:9.5px;color:var(--paper-muted)}
 .qrfail{display:block;font-size:10px;color:var(--paper-muted)}
@@ -1223,9 +1224,9 @@ function cellMedia(o,after){
 }
 function qrImg(o,cls){const u=obsLink(o.id);return '<img class="'+cls+'" data-qr="'+h(u)+'" src="'+qrSrc(u)+'" alt="QR code to open this observation">';}
 function obsTRow(o,i,withDate){
-  return '<tr><td>'+(i+1)+'</td><td>'+h(o.dept)+'<br><span style="color:var(--paper-muted)">'+h(o.kind)+(o.risk?'<br><b style="color:'+(isHigh(o)?'#b3261e':'inherit')+'">'+h(o.risk)+' risk</b>':'')+(withDate?'<br>'+fmtD(o.date):'')+'</span></td><td>'+h(o.note)+(o.action?'<br><span style="color:var(--paper-muted)">Action: '+h(o.action)+'</span>':'')+(o.closeNote?'<br><span style="color:var(--paper-muted)">Done: '+h(o.closeNote)+'</span>':'')+'</td><td>'+cellMedia(o,false)+'</td><td>'+cellMedia(o,true)+'</td><td>'+h(o.owner)+'</td><td>'+fmtD(o.target)+'</td><td><b>'+obsStatus(o)+'</b>'+(hasVideo(o)?qrImg(o,'qrs')+'<div class="qrnote">Scan to play video</div>':'')+'</td></tr>';
+  return '<tr><td class="nw">'+(i+1)+'</td><td><span class="dp">'+h(o.dept)+'</span><span class="dk">'+h(o.kind)+'</span>'+(o.risk?'<span class="dk"><b style="color:'+(isHigh(o)?'#b3261e':'inherit')+'">'+h(o.risk)+' risk</b></span>':'')+(withDate?'<span class="dk">'+fmtD(o.date)+'</span>':'')+'</td><td>'+h(o.note)+(o.action?'<br><span style="color:var(--paper-muted)">Action: '+h(o.action)+'</span>':'')+(o.closeNote?'<br><span style="color:var(--paper-muted)">Done: '+h(o.closeNote)+'</span>':'')+'</td><td>'+cellMedia(o,false)+'</td><td>'+cellMedia(o,true)+'</td><td>'+h(o.owner)+'</td><td class="nw">'+fmtD(o.target)+'</td><td><b>'+obsStatus(o)+'</b>'+(hasVideo(o)?qrImg(o,'qrs')+'<div class="qrnote">Scan to play video</div>':'')+'</td></tr>';
 }
-function obsTHead(){return '<table><thead><tr><th style="width:40px">S.No</th><th>Department</th><th>Observation</th><th style="width:134px">Before</th><th style="width:134px">After</th><th>Responsible</th><th>Target</th><th>Status</th></tr></thead><tbody>';}
+function obsTHead(){return '<table class="obst"><colgroup><col style="width:44px"><col style="width:150px"><col><col style="width:134px"><col style="width:134px"><col style="width:110px"><col style="width:92px"><col style="width:84px"></colgroup><thead><tr><th>S.No</th><th>Department</th><th>Observation</th><th>Before</th><th>After</th><th>Responsible</th><th>Target</th><th>Status</th></tr></thead><tbody>';}
 function obsRegister(rows,fl,dp){
   const max=80;const shown=rows.slice(0,max);
   const open=rows.filter(function(o){return obsStatus(o)!=='Closed';}).length,over=rows.filter(function(o){return obsStatus(o)==='Overdue';}).length,closed=rows.length-open;
