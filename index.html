@@ -2383,16 +2383,31 @@ async function makePdf(name,btn){
     await Promise.all(Object.keys(photoWait).map(function(k){return photoWait[k].catch(function(){});}));
     await fillQr();
     const z=el.style.zoom;el.style.zoom='';
-    let canvas;try{canvas=await window.html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,ignoreElements:function(n){return n.classList&&n.classList.contains('noprt');}});}finally{el.style.zoom=z;}
+    let canvas,cuts=[],domH=1;try{
+      const er=el.getBoundingClientRect();domH=er.height||1;
+      el.querySelectorAll('tr,.stats,.sec,.pgrid,.sign,h3.title,.sh,.kv,p,li,.pt,.foot,article > *').forEach(function(n){
+        const r=n.getBoundingClientRect();if(!r.height)return;let head=null;
+        if(n.tagName==='TR'&&n.parentNode&&n.parentNode.tagName==='TBODY'){const th=n.closest('table').querySelector('thead');if(th&&n.nextElementSibling){const hr=th.getBoundingClientRect();head=[hr.top-er.top,hr.bottom-er.top];}}
+        cuts.push({y:r.bottom-er.top,head:head});
+      });
+      canvas=await window.html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,ignoreElements:function(n){return n.classList&&n.classList.contains('noprt');}});
+    }finally{el.style.zoom=z;}
     const J=window.jspdf.jsPDF;const wide=el.classList.contains('wide');
     const pdf=new J({orientation:wide?'landscape':'portrait',unit:'pt',format:'a4'});
     const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),m=18;
     const iw=pw-2*m;const scale=iw/canvas.width;const pagePx=Math.floor((ph-2*m)/scale);
-    let y=0,first=true;
-    while(y<canvas.height){
-      const hh=Math.min(pagePx,canvas.height-y);const c=document.createElement('canvas');c.width=canvas.width;c.height=hh;
-      const g=c.getContext('2d');g.fillStyle='#ffffff';g.fillRect(0,0,c.width,hh);g.drawImage(canvas,0,y,canvas.width,hh,0,0,canvas.width,hh);
-      if(!first)pdf.addPage();pdf.addImage(c.toDataURL('image/jpeg',0.9),'JPEG',m,m,iw,hh*scale);first=false;y+=hh;
+    /* break pages only between rows / blocks, and repeat the table header on the next page */
+    const k=canvas.height/domH,H=canvas.height;
+    cuts=cuts.map(function(c){return {y:Math.round(c.y*k),head:c.head?[Math.round(c.head[0]*k),Math.round(c.head[1]*k)]:null};}).sort(function(a,b){return a.y-b.y;});
+    let y=0,first=true,prefix=null;
+    while(y<H-2){
+      const ph0=prefix?prefix[1]-prefix[0]:0;const avail=pagePx-ph0;let cut=Math.min(y+avail,H),next=null;
+      if(y+avail<H){let best=null;for(const c of cuts){if(c.y>y+10&&c.y<=y+avail)best=c;}if(best&&best.y-y>=avail*0.25){cut=best.y;next=best.head;}}
+      const body=cut-y;const c=document.createElement('canvas');c.width=canvas.width;c.height=ph0+body;
+      const g=c.getContext('2d');g.fillStyle='#ffffff';g.fillRect(0,0,c.width,c.height);
+      if(prefix)g.drawImage(canvas,0,prefix[0],canvas.width,ph0,0,0,canvas.width,ph0);
+      g.drawImage(canvas,0,y,canvas.width,body,0,ph0,canvas.width,body);
+      if(!first)pdf.addPage();pdf.addImage(c.toDataURL('image/jpeg',0.9),'JPEG',m,m,iw,c.height*scale);first=false;y=cut;prefix=next;
     }
     await S.dl.save({filename:(name||'report')+'.pdf',data:pdf.output('blob')});
     toast('PDF saved. Print two copies from your PDF viewer.');
