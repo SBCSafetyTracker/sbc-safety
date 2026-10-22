@@ -414,6 +414,7 @@ table.list .two{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vert
 "use strict";
 /* ---------- constants ---------- */
 const ICON = {
+  phone:'M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2',
   home:'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
   obs:'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
   permits:'M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6M9 16h3',
@@ -440,7 +441,8 @@ const DEFAULT_SETTINGS = {
     {id:'u4', name:'Unit 4, 5 & 13', depts:['PDC','GDC','LPDC','Heat Treatment','Final Export – International','Final Export – Domestic','Maintenance','Stores']},
     {id:'u8', name:'Unit 8', depts:['PDC','GDC','LPDC','Final','Maintenance','Stores']}
   ],
-  roles:{}, sendDaily:'', sendWeekly:''
+  roles:{}, sendDaily:'', sendWeekly:'',
+  emerg:'# Internal\nSafety | 9500034948\n# 24x7 emergency (medical, police, fire)\nEMRI emergency | 108\n# Police\nPolice control room | 100\nSholavaram police station | 7010281572, 9498100340\n# Fire\nFire control room | 101\nPonneri fire station | 044-27974064\n# Hospital\nAmbulance | 102\nVels Hospital | 044-35035035, 044-27629400'
 };
 const OBS_KINDS = ['Unsafe condition','Unsafe act','Housekeeping','Near miss'];
 const CHECKS = {
@@ -820,6 +822,7 @@ function viewHtml(v){
     case 'recView':return vRecView();
     case 'reports':return vReports();
     case 'repDaily':return vRepDaily();
+    case 'emergency':return vEmergency();
     case 'repWeekly':return vRepWeekly();
     case 'repSummary':return vRepSummary();
     case 'repRegister':return vRepRegister(S.arg.col);
@@ -836,6 +839,7 @@ function viewHtml(v){
   return vHome();
 }
 function viewAllowed(v){
+  if(v==='emergency')return true;
   if(v==='capture')return can('capture');
   if(v==='obs'||v==='obsDetail')return can('obs');
   if(v==='settings')return can('settings');
@@ -892,7 +896,7 @@ function vHome(){
   const act=list('permits').filter(function(p){return p.status==='Approved';});
   const due30=list('certs').filter(function(c){const d=daysTo(c.expiry);return d!=null&&d<=30;}).length+list('ext').filter(function(c){const d=daysTo(c.refillDue);return d!=null&&d<=30;}).length;
   const hr=new Date().getHours();const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
-  let x=head(greet+(S.myName?', '+S.myName.split(' ')[0]:''),fmtD(today())+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(can('capture')?'<button type="button" class="btn primary" data-go="capture">'+ic('plus',18)+'New observation</button>':''));
+  let x=head(greet+(S.myName?', '+S.myName.split(' ')[0]:''),fmtD(today())+' · '+unitName(),'<button type="button" class="btn" data-go="emergency" style="color:#b3261e;border-color:#b3261e">'+ic('phone',18)+'Emergency</button><span class="desk-only">'+deskUnit()+'</span>'+(can('capture')?'<button type="button" class="btn primary" data-go="capture">'+ic('plus',18)+'New observation</button>':''));
   x+='<div class="content">'+banners();
   x+='<section class="tiles" aria-label="Today\'s numbers">';
   x+='<button type="button" class="tile" data-go="obs" data-filter="Open"><div class="l">Open observations</div><div class="n">'+open.length+'</div></button>';
@@ -1936,9 +1940,43 @@ async function compImport(files){
   render();
 }
 
+/* ---------- Emergency: tap-to-call numbers + escape route plan photos ---------- */
+function emergLines(){return String(S.settings.emerg||DEFAULT_SETTINGS.emerg).split('\n').map(function(l){return l.trim();}).filter(Boolean);}
+function vEmergency(){
+  const u=unitObj();const plans=(u&&u.escape)||[];
+  let x=head('Emergency','Tap a number to call · '+unitName(),isAdmin()?'<button type="button" class="btn small" data-act="emergedit">'+(S.emEdit?'Done':'Edit numbers')+'</button>':'');
+  x+='<div class="content" style="max-width:820px">'+banners();
+  x+='<a class="btn primary" href="tel:108" style="min-height:64px;font-size:20px;justify-content:center">'+ic('phone',22)+'Call 108 – Emergency</a>';
+  if(S.emEdit){
+    x+='<section class="panel"><header><h2>Edit numbers</h2><small style="color:var(--muted)">One per line: Name | number. A line starting with # is a heading. Separate two numbers with a comma.</small></header><div class="body"><textarea class="in" id="em_txt" rows="16">'+h(emergLines().join('\n'))+'</textarea><div class="btnrow" style="justify-content:flex-end;margin-top:10px"><button type="button" class="btn primary" data-act="emergsave">Save numbers</button></div></div></section>';
+  }else{
+    let cur=null;x+='<section class="panel"><div class="rows">';
+    emergLines().forEach(function(l){
+      if(l.charAt(0)==='#'){x+='<div class="row" style="cursor:default;background:var(--tint)"><b style="color:var(--brand)">'+h(l.replace(/^#\s*/,''))+'</b></div>';return;}
+      const p=l.split('|');const name=(p[0]||'').trim();const nums=(p[1]||'').split(',').map(function(n){return n.trim();}).filter(Boolean);
+      x+='<div class="row" style="cursor:default;flex-wrap:wrap"><span class="t"><b>'+h(name)+'</b></span><span style="display:flex;gap:8px;flex-wrap:wrap">'+nums.map(function(n){return '<a class="btn small" href="tel:'+h(n.replace(/[^0-9+]/g,''))+'">'+ic('phone',16)+h(n)+'</a>';}).join('')+'</span></div>';
+    });
+    x+='</div></section>';
+  }
+  x+='<section class="panel"><header><h2>Escape route plan – '+h(unitName())+'</h2><small style="color:var(--muted)">Follow the green arrows to the nearest exit and go to the safe assembly point. Do not go back for belongings.</small></header><div class="body" style="display:flex;flex-direction:column;gap:12px">';
+  x+=plans.length?plans.map(function(id,i){return '<div><a href="'+photoUrl(id)+'" target="_blank" rel="noopener"><img src="'+photoUrl(id)+'" alt="Escape route plan '+(i+1)+'" style="width:100%;border-radius:10px;display:block;background:var(--ph)"></a>'+(isAdmin()?'<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn small" data-act="emergrm" data-i="'+i+'">Remove</button></div>':'')+'</div>';}).join(''):'<div class="empty">No escape route plan photo for this unit yet.</div>';
+  if(isAdmin())x+='<div class="btnrow"><button type="button" class="btn" data-act="emergadd">'+ic('cam',18)+'Add escape route plan photo</button><small style="color:var(--muted)">Tap a photo to open it full size and zoom.</small></div>';
+  x+='</div></section></div>';
+  return x;
+}
+async function emergClick(t){
+  const a=t.dataset.act;
+  if(a==='emergedit'){S.emEdit=!S.emEdit;render();return true;}
+  if(a==='emergsave'){const st=JSON.parse(JSON.stringify(S.settings));st.emerg=(document.getElementById('em_txt')||{}).value||'';S.emEdit=false;await putSettings(st);toast('Numbers saved.');render();return true;}
+  if(a==='emergadd'){pickFile({multiple:true,accept:'image/*'},async function(fs){const st=JSON.parse(JSON.stringify(S.settings));const u=st.units.find(function(x){return x.id===S.unit;});if(!u)return;u.escape=u.escape||[];for(const f of fs){toast('Uploading plan photo…');try{u.escape.push(await uploadPhoto(await compress(f)));}catch(e){toast(e&&e.message||'Could not add the photo.');}}await putSettings(st);toast('Escape route plan added.');render();});return true;}
+  if(a==='emergrm'){const st=JSON.parse(JSON.stringify(S.settings));const u=st.units.find(function(x){return x.id===S.unit;});if(u&&u.escape){u.escape.splice(+t.dataset.i,1);await putSettings(st);render();}return true;}
+  return false;
+}
+
 /* clicks for this block */
 async function extClick(t){
   const a=t.dataset.act;if(!a)return false;
+  if(await emergClick(t))return true;
   if(await tcalClick(t))return true;
   switch(a){
     case 'setrisk':setRisk(t.dataset.r);return true;
@@ -2543,6 +2581,7 @@ function vMore(){
   let x=head('More',(S.myName||'')+' · '+ROLE_LABEL[myRole().role],'<button type="button" class="btn small" data-act="rename">Change name</button>');
   x+='<div class="content">'+banners()+'<div class="morelist">';
   const t=function(go,col,icon,label,sub){return '<button type="button" class="mtile" data-go="'+go+'"'+(col?' data-col="'+col+'"':'')+'><span class="ic">'+ic(icon)+'</span><b>'+h(label)+'</b><small>'+h(sub)+'</small></button>';};
+  x+=t('emergency','','phone','Emergency','Numbers and escape route plan');
   if(can('obs'))x+=t('obs','','obs','Observations','Open, overdue, closed');
   if(can('write')){x+=t('permits','','permits','Permits','Hot work, LOTO, height');x+=t('zs','','records','2S zone score','Weekly, by zone');RECORD_ORDER.forEach(function(c){x+=t('recList',c,REC[c].icon,REC[c].label,REC[c].sub);});}
   if(can('settings'))x+=t('settings','','settings','Settings','Units, people, backup');
@@ -2633,7 +2672,7 @@ function parentOf(v,arg){
     case 'ppeLog':return {v:'recList',arg:{col:'ppe'}};
     case 'zsForm':return {v:'zs'};
     case 'repDaily':case 'repWeekly':case 'repSummary':case 'rep2S':return {v:'reports'};
-    case 'settings':return {v:'more'};
+    case 'settings':case 'emergency':return {v:'more'};
   }
   return {v:'home'};
 }
