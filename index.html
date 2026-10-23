@@ -875,13 +875,19 @@ function saveMyName(){
 /* ---------- Home ---------- */
 function dueItems(){
   const t=today();const out=[];
-  list('obs').forEach(function(o){const st=obsStatus(o);if(st!=='Closed'&&o.target&&o.target<=t)out.push({go:'obsDetail',id:o.id,title:o.note||'Observation',sub:(o.dept||'')+' · '+o.kind,pill:st==='Overdue'?'<span class="pill bad">Overdue</span>':'<span class="pill warn">Due today</span>',rank:st==='Overdue'?0:1});});
+  /* more than 3 overdue observations show as one line, so the plan stays short */
+  (function(){const od=[];list('obs').forEach(function(o){const st=obsStatus(o);if(st==='Closed'||!o.target||o.target>t)return;if(st==='Overdue')od.push(o);else out.push({go:'obsDetail',id:o.id,title:o.note||'Observation',sub:(o.dept||'')+' · '+o.kind,pill:'<span class="pill warn">Due today</span>',rank:1});});
+    if(od.length>3){const old=od.reduce(function(a,o){return o.target<a?o.target:a;},od[0].target);out.push({go:'obs',filter:'Overdue',title:od.length+' observations overdue',sub:'Oldest target '+fmtD(old)+' · tap to see the list',pill:'<span class="pill bad">Overdue</span>',rank:0});}
+    else od.forEach(function(o){out.push({go:'obsDetail',id:o.id,title:o.note||'Observation',sub:(o.dept||'')+' · '+o.kind,pill:'<span class="pill bad">Overdue</span>',rank:0});});})();
   if(can('write')){
     list('permits').forEach(function(p){if(p.status==='Approved'&&p.to&&p.to.slice(0,10)<=t)out.push({go:'recView',col:'permits',id:p.id,title:(p.kind||'Permit')+' – '+(p.contractor||''),sub:(p.dept||'')+' · close the permit',pill:'<span class="pill warn">Close today</span>',rank:1});});
     (function(){const grp={};list('certs').forEach(function(c){const d=daysTo(c.expiry);if(d==null||d>30)return;const k=(c.plant||'')+'|'+c.equipment+'|'+c.expiry;(grp[k]=grp[k]||[]).push(c);});
       Object.keys(grp).forEach(function(k){const g=grp[k],c=g[0],d=daysTo(c.expiry);if(g.length===1)out.push({go:'recView',col:'certs',id:c.id,title:c.equipment+(c.idno?' ('+c.idno+')':''),sub:(c.dept||'')+' · certificate',pill:duePill(c.expiry),rank:d<0?0:2});
         else out.push({go:'recList',col:'certs',title:g.length+' × '+c.equipment+(c.plant?' – '+c.plant:''),sub:(d<0?'Inspection overdue since ':'Inspection due ')+fmtD(c.expiry),pill:duePill(c.expiry),rank:d<0?0:2});});})();
-    list('ext').forEach(function(e){const d=daysTo(e.refillDue);if(d!=null&&d<=30)out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – '+(e.location||''),sub:'Refill due',pill:duePill(e.refillDue),rank:d<0?0:2});if(extCond(e)==='Needs attention')out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||''),sub:e.location||'',pill:'<span class="pill bad">Needs attention</span>',rank:1});});
+    (function(){const rf=list('ext').filter(function(e){const d=daysTo(e.refillDue);return d!=null&&d<=30;});
+      if(rf.length>3){const late=rf.filter(function(e){return daysTo(e.refillDue)<0;}).length;out.push({go:'recList',col:'ext',title:rf.length+' extinguishers – refill due',sub:(late?late+' already late':'Due in the next 30 days')+' · tap to see the list',pill:late?'<span class="pill bad">Late</span>':'<span class="pill warn">Due soon</span>',rank:late?0:2});}
+      else rf.forEach(function(e){out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – '+(e.location||''),sub:'Refill due',pill:duePill(e.refillDue),rank:daysTo(e.refillDue)<0?0:2});});})();
+    list('ext').forEach(function(e){if(extCond(e)==='Needs attention')out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||''),sub:e.location||'',pill:'<span class="pill bad">Needs attention</span>',rank:1});});
     list('ext').forEach(function(e){const d=daysTo(e.hptDue);if(d!=null&&d<=30)out.push({go:'recView',col:'ext',id:e.id,title:'Extinguisher '+(e.tag||'')+' – hydro test',sub:e.location||'',pill:duePill(e.hptDue),rank:d<0?0:2});});
     (function(){const ex=list('ext');const left=ex.filter(function(e){return !extCheckedThisMonth(e);}).length;if(ex.length&&left&&new Date().getDate()>=20)out.push({go:'recList',col:'ext',title:left+' extinguisher'+(left>1?'s':'')+' not checked this month',sub:'Monthly check',pill:'<span class="pill warn">Check</span>',rank:2});})();
     list('ppe').forEach(function(p){if(lowStock(p))out.push({go:'recView',col:'ppe',id:p.id,title:p.item+(p.size?' – '+p.size:''),sub:'Stock '+ppeTotal(p)+', re-order at '+p.minLevel,pill:'<span class="pill bad">Low stock</span>',rank:2});});
@@ -1117,7 +1123,7 @@ function markEditor(f){
   return x;
 }
 function vCapture(){
-  if(!(S.form&&S.form.kind==='capture')){S.form={kind:'capture',draft:{dept:'',kind:'Unsafe condition',risk:'Medium',note:'',action:'',label:'',owner:'',target:addDays(today(),3)},media:[]};S.form.autoTarget=S.form.draft.target;}
+  if(!(S.form&&S.form.kind==='capture')){S.form={kind:'capture',draft:{dept:'',kind:'Unsafe condition',risk:'Medium',note:'',action:'',label:'',owner:'',target:addDays(today(),RISK_DAYS.Medium)},media:[]};S.form.autoTarget=S.form.draft.target;}
   const f=S.form;const d=f.draft;const edit=!!f.editId;
   if(f.markIdx!=null&&f.media[f.markIdx])return markEditor(f);
   const cancel=edit?'<button type="button" class="btn ghost" data-act="capcancel">Cancel</button>':'<button type="button" class="btn ghost" data-go="'+(S.prev||'home')+'">Cancel</button>';
@@ -1743,7 +1749,7 @@ function autoFillOwner(){
 }
 
 /* ---------- Risk rating ---------- */
-const RISKS=['High','Medium','Low'];const RISK_DAYS={High:1,Medium:3,Low:7};
+const RISKS=['High','Medium','Low'];const RISK_DAYS={High:1,Medium:7,Low:15};
 function riskPill(o){const r=o&&o.risk;if(!r)return '';const k=String(r).toLowerCase();return '<span class="pill '+(k.indexOf('high')===0?'bad':k.indexOf('med')===0?'warn':'plain')+' risk">'+h(r)+' risk</span>';}
 function isHigh(o){return /^high/i.test(String(o.risk||''));}
 function setRisk(r){
@@ -1751,7 +1757,7 @@ function setRisk(r){
   if(!d.target||d.target===f.autoTarget){d.target=addDays(f.editId?(d.date||today()):today(),RISK_DAYS[r]);f.autoTarget=d.target;}
   d.risk=r;render();
 }
-function riskField(d){return '<div class="field wide"><span class="lab">Risk</span><div class="chips" role="group" aria-label="Risk">'+RISKS.map(function(r){return '<button type="button" class="chip risk-'+r.toLowerCase()+'" data-act="setrisk" data-r="'+r+'" aria-pressed="'+(d.risk===r)+'">'+r+'</button>';}).join('')+'</div><small>Target date sets itself: High 1 day, Medium 3 days, Low 7 days. You can still change it.</small></div>';}
+function riskField(d){return '<div class="field wide"><span class="lab">Risk</span><div class="chips" role="group" aria-label="Risk">'+RISKS.map(function(r){return '<button type="button" class="chip risk-'+r.toLowerCase()+'" data-act="setrisk" data-r="'+r+'" aria-pressed="'+(d.risk===r)+'">'+r+'</button>';}).join('')+'</div><small>Target date sets itself: High 1 day, Medium 7 days, Low 15 days. You can still change it.</small></div>';}
 
 /* ---------- Repeat problems ---------- */
 const STOP=('the and with near from not are was has had any all one two its out top end per via that this have has not for are was were been into onto over under area areas shop floor kept keep found seen observed safety unsafe condition act workers worker machine near miss without no').split(' ');
