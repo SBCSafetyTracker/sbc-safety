@@ -761,15 +761,10 @@ function side(){
   if(can('obs'))x+=navItem('obs','Observations','obs',s==='obs');
   if(can('write'))x+=navItem('permits','Permits','permits',s==='permits');
   if(can('reports'))x+=navItem('reports','Reports','reports',s==='reports');
-  if(can('write'))x+=navItem('records','Records','records',S.view==='records');
-  const subs=[];
-  if(can('write')){subs.push({go:'zs',label:'2S zone score',icon:'records',cur:S.view==='zs'||S.view==='zsForm'});RECORD_ORDER.forEach(function(c){subs.push({go:'recList',col:c,label:REC[c].label,icon:REC[c].icon,cur:['recList','recView','recForm','repRegister'].indexOf(S.view)>=0&&S.arg&&S.arg.col===c});});}
-  if(can('settings'))subs.push({go:'settings',label:'Settings',icon:'settings',cur:S.view==='settings'});
-  if(subs.length){
-    const anyCur=subs.some(function(u){return u.cur;});const open=S.moreOpen||anyCur;
-    x+='<button type="button" class="nav morebtn" data-act="togglemore" aria-expanded="'+open+'">'+ic('more')+'<span>More</span><span class="chev" aria-hidden="true">'+(open?'▴':'▾')+'</span></button>';
-    if(open)x+='<div class="moregroup">'+subs.map(function(u){return '<button type="button" class="nav sub" data-go="'+u.go+'"'+(u.col?' data-col="'+u.col+'"':'')+(u.cur?' aria-current="page"':'')+'>'+ic(u.icon,18)+h(u.label)+'</button>';}).join('')+'</div>';
-  }
+  /* every record type is listed once, on the Records page */
+  if(can('write'))x+=navItem('records','Records','records',s==='records');
+  x+=navItem('emergency','Emergency','phone',s==='emergency');
+  if(can('settings'))x+=navItem('settings','Settings','settings',s==='settings');
   x+='<button type="button" class="who" data-act="rename" title="Change name"><b>'+h(S.myName||'You')+'</b><span>'+h(ROLE_LABEL[myRole().role])+'</span></button></nav>';
   return x;
 }
@@ -2634,7 +2629,7 @@ function vMore(){
   const t=function(go,col,icon,label,sub){return '<button type="button" class="mtile" data-go="'+go+'"'+(col?' data-col="'+col+'"':'')+'><span class="ic">'+ic(icon)+'</span><b>'+h(label)+'</b><small>'+h(sub)+'</small></button>';};
   x+=t('emergency','','phone','Emergency','Numbers and escape route plan');
   if(can('obs'))x+=t('obs','','obs','Observations','Open, overdue, closed');
-  if(can('write')){x+=t('permits','','permits','Permits','Hot work, LOTO, height');x+=t('zs','','records','2S zone score','Weekly, by zone');RECORD_ORDER.forEach(function(c){x+=t('recList',c,REC[c].icon,REC[c].label,REC[c].sub);});}
+  if(can('write')){x+=t('permits','','permits','Permits','Hot work, LOTO, height');x+=t('records','','records','Records','Training, drills, certificates, extinguishers, PPE and more');}
   if(can('settings'))x+=t('settings','','settings','Settings','Units, people, backup');
   x+='</div><div class="panel"><div class="body" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between"><small style="color:var(--muted)">Signed in as '+h(S.uid||'')+(window.SBCStore&&window.SBCStore.pending()?' · '+window.SBCStore.pending()+' change(s) waiting to send':' · all saved to Google Drive')+'</small><button type="button" class="btn small" data-act="signout">Sign out</button></div></div>';
   return x+'</div>';
