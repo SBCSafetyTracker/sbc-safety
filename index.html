@@ -1998,6 +1998,9 @@ async function extClick(t){
     case 'extcheck':S.extCheck=t.dataset.id;render();return true;
     case 'extcheckcancel':S.extCheck=null;render();return true;
     case 'extchecksave':extCheckSave(t.dataset.id);return true;
+    case 'extallok':S.extAllOk=(S.extLocs||[])[+t.dataset.i]||null;render();return true;
+    case 'extallokno':S.extAllOk=null;render();return true;
+    case 'extallokyes':extAllOk(S.extAllOk);return true;
     case 'savecontacts':saveContacts();return true;
     case 'sentlog':logSent(t.dataset.id,t.dataset.to);return false;
     case 'remindlog':(t.dataset.ids||'').split(',').filter(Boolean).forEach(function(id){logSent(id,'','remindedAt');});return false;
@@ -2039,7 +2042,34 @@ function extList(rows){
   const due=rows.filter(function(r){const a=daysTo(r.refillDue),b=daysTo(r.hptDue);return (a!=null&&a<=30)||(b!=null&&b<=30);}).length;
   let x='<section class="tiles"><div class="tile" style="cursor:default"><div class="l">Extinguishers</div><div class="n">'+rows.length+'</div></div><div class="tile'+(done<rows.length?' warn':'')+'" style="cursor:default"><div class="l">Checked this month</div><div class="n">'+done+' / '+rows.length+'</div></div><div class="tile'+(bad?' bad':'')+'" style="cursor:default"><div class="l">Need attention</div><div class="n">'+bad+'</div></div><div class="tile'+(due?' warn':'')+'" style="cursor:default"><div class="l">Refill / hydro due in 30 days</div><div class="n">'+due+'</div></div></section>';
   x+='<small style="color:var(--muted)">Send the photos with locations in the Claude chat and the type, capacity and dates can be read from the labels and filled in.</small>';
-  return x+'<div class="xgrid">'+rows.map(extCard).join('')+'</div>';
+  return x+extQuick(rows)+'<div class="xgrid">'+rows.map(extCard).join('')+'</div>';
+}
+/* quick monthly check: one tap marks every unchecked extinguisher at a location as all OK */
+function extLoc(r){return r.location||'Location not set';}
+function extQuick(rows){
+  if(!can('write'))return '';
+  const grp={};rows.forEach(function(r){if(!extCheckedThisMonth(r))(grp[extLoc(r)]=grp[extLoc(r)]||[]).push(r);});
+  const locs=Object.keys(grp).sort();S.extLocs=locs;
+  if(!locs.length)return '';
+  const mon=MON[+today().slice(5,7)-1]+' '+today().slice(0,4);const sel=S.extAllOk&&grp[S.extAllOk]?S.extAllOk:null;
+  let x='<section class="panel"><header><h2>Quick monthly check – '+mon+'</h2><span class="pill plain">'+locs.length+' location'+(locs.length>1?'s':'')+' left</span></header><div class="body" style="display:flex;flex-direction:column;gap:12px">';
+  x+='<small style="color:var(--muted)">Walked a location and every extinguisher there is fine? Tap it once to mark them all OK. If one has a problem, use Monthly check on that card instead.</small>';
+  if(sel)x+='<div class="banner info" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between"><span>Mark <b>'+grp[sel].length+'</b> extinguisher'+(grp[sel].length>1?'s':'')+' at <b>'+h(sel)+'</b> as all OK for '+mon+'?</span><span class="btnrow"><button type="button" class="btn ghost small" data-act="extallokno">Cancel</button><button type="button" class="btn primary small" data-act="extallokyes">Yes, all OK</button></span></div>';
+  x+='<div class="chips">'+locs.map(function(l,i){return '<button type="button" class="chip" data-act="extallok" data-i="'+i+'" aria-pressed="'+(l===sel)+'">'+h(l)+' · '+grp[l].length+'</button>';}).join('')+'</div>';
+  return x+'</div></section>';
+}
+async function extAllOk(loc){
+  const rows=list('ext').filter(function(r){return !extCheckedThisMonth(r)&&extLoc(r)===loc;});
+  let n=0;
+  for(const r of rows){
+    const b=stripId(r);b.checks=EXT_CHECKS.slice();b.checkedOn=today();b.condition='OK';b.remarks='';
+    b.log=Object.assign({},b.log||{});b.log[today().slice(0,7)]={date:today(),checks:b.checks,by:S.myName||S.uid||'',quick:true};
+    b.updatedAt=new Date().toISOString();
+    try{await writeDoc('ext',r.id,b);n++;}catch(e){}
+  }
+  S.extAllOk=null;
+  toast(n===rows.length?n+' extinguisher'+(n>1?'s':'')+' at '+loc+' marked OK.':'Saved '+n+' of '+rows.length+'. Tap the location again for the rest.');
+  render();
 }
 async function extCheckSave(id){
   const r=(S.data.ext||[]).find(function(x){return x.id===id;});if(!r)return;
