@@ -1252,9 +1252,18 @@ async function gemSaveTest(btn){
 
 /* ---------- Observations list: view modes ---------- */
 function modeSelect(id,cur){return '<label class="vm" for="'+id+'"><span>View</span><select class="in" id="'+id+'">'+OBS_MODES.map(function(m){return '<option value="'+m[0]+'"'+(m[0]===cur?' selected':'')+'>'+m[1]+'</option>';}).join('')+'</select></label>';}
-function obsFiltered(){
-  const fl=S.filter||'Open';const dp=S.deptFilter;
-  return list('obs').slice().sort(byNewest).filter(function(o){const st=obsStatus(o);if(fl==='Open'&&st==='Closed')return false;if(fl==='Overdue'&&st!=='Overdue')return false;if(fl==='Closed'&&st!=='Closed')return false;if(dp&&o.dept!==dp)return false;return true;});
+const DATE_FILTERS=[['','All dates'],['today','Today'],['week','This week'],['lastweek','Last week'],['older','Older']];
+function inDateFilter(o,df){
+  if(!df)return true;const d=String(o.date||'').slice(0,10);const ws=weekStart();const lws=addDays(ws,-7);
+  if(df==='today')return d===today();if(df==='week')return d>=ws;if(df==='lastweek')return d>=lws&&d<ws;if(df==='older')return d<lws;return true;
+}
+function obsFiltered(skipDate){
+  const fl=S.filter||'Open';const dp=S.deptFilter;const df=skipDate?'':S.dateFilter;
+  return list('obs').slice().sort(byNewest).filter(function(o){const st=obsStatus(o);if(fl==='Open'&&st==='Closed')return false;if(fl==='Overdue'&&st!=='Overdue')return false;if(fl==='Closed'&&st!=='Closed')return false;if(dp&&o.dept!==dp)return false;if(!inDateFilter(o,df))return false;return true;});
+}
+function dateSelect(){
+  const base=obsFiltered(true);const df=S.dateFilter||'';
+  return '<label for="datef" class="hidden-sr">Date</label><select class="in" id="datef" style="min-height:40px;width:auto">'+DATE_FILTERS.map(function(f){const n=base.filter(function(o){return inDateFilter(o,f[0]);}).length;return '<option value="'+f[0]+'"'+(f[0]===df?' selected':'')+'>'+f[1]+' ('+n+')</option>';}).join('')+'</select>';
 }
 function vObs(){
   const rows=obsFiltered();S.obsOrder=rows.map(function(o){return o.id;});
@@ -1262,7 +1271,7 @@ function vObs(){
   let right='<span class="desk-only">'+deskUnit()+'</span>'+(can('capture')?'<button type="button" class="btn primary" data-go="capture">'+ic('plus',18)+'New observation</button>':'');
   let x=head('Observations','Unsafe acts and conditions, with before and after photos',right);
   x+='<div class="content">'+banners()+'<div class="btnrow" style="justify-content:space-between"><div class="seg" role="group" aria-label="Show">'+['Open','Overdue','Closed','All'].map(function(k){return '<button type="button" data-filter="'+k+'" aria-pressed="'+(fl===k)+'">'+k+'</button>';}).join('')+'</div>';
-  x+='<div class="btnrow"><label for="deptf" class="hidden-sr">Department</label><select class="in" id="deptf" style="min-height:40px;width:auto"><option value="">All departments</option>'+unitObj().depts.map(function(d){return '<option'+(d===dp?' selected':'')+'>'+h(d)+'</option>';}).join('')+'</select>'+modeSelect('viewmode',mode)+'<button type="button" class="btn small" data-go="repDaily">Today\'s report</button><button type="button" class="btn small" data-go="repWeekly">Weekly report</button></div></div>';
+  x+='<div class="btnrow"><label for="deptf" class="hidden-sr">Department</label><select class="in" id="deptf" style="min-height:40px;width:auto"><option value="">All departments</option>'+unitObj().depts.map(function(d){return '<option'+(d===dp?' selected':'')+'>'+h(d)+'</option>';}).join('')+'</select>'+dateSelect()+modeSelect('viewmode',mode)+'<button type="button" class="btn small" data-go="repDaily">Today\'s report</button><button type="button" class="btn small" data-go="repWeekly">Weekly report</button></div></div>';
   if(S.queue.length)x+='<div class="panel"><header><h2>Waiting to send</h2></header><div class="rows">'+S.queue.map(function(q){return '<div class="row" style="cursor:default"><span class="t"><b>'+h(q.body.note||'Observation')+'</b><small>'+h(q.body.dept)+' · saved on this phone</small></span><span class="pill warn">Not sent</span></div>';}).join('')+'</div></div>';
   if(!rows.length)return x+'<div class="panel"><div class="empty">No observations here yet. Tap New observation to add one with a photo – it appears here and on the daily report.</div></div></div>';
   if(mode==='report')x+=obsRegister(rows,fl,dp);
@@ -2884,6 +2893,7 @@ document.addEventListener('change',async function(e){
   if((el.id==='f_kind'||el.id==='f_outcome')&&S.form&&(S.form.col==='visitors'||S.form.col==='firstaid')){readRecForm();render();return;}
   if(el.id==='f_item'&&S.form&&S.form.col==='ppe'){const std=PPE_STD.find(function(p){return p[0].toLowerCase()===el.value.trim().toLowerCase();});const sz=document.getElementById('f_sizes');if(std&&sz&&!sz.value)sz.value=std[1];return;}
   if(el.id==='deptf'){S.deptFilter=el.value;render();return;}
+  if(el.id==='datef'){S.dateFilter=el.value;render();return;}
   if(el.id==='repdate'){S.repDate=el.value||today();render();return;}
   if(el.id==='regmonth'){S.regMonth=el.value||today().slice(0,7);render();return;}
   if(el.id==='restorefile'){const file=el.files&&el.files[0];if(!file)return;try{const json=JSON.parse(await file.text());let count=0;COLS.forEach(function(c){count+=((json.data||{})[c]||[]).length;});S.restore={json:json,name:file.name,count:count};render();}catch(err){toast('That file is not a Safety Tracker backup.');}return;}
