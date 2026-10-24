@@ -339,6 +339,11 @@ table.list .rep{margin-left:6px}
 .cnt{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.65);color:#fff;font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:10px;z-index:2}
 .hl{position:absolute;left:6px;bottom:6px;background:#e11d1d;color:#fff;font-size:11px;font-weight:600;padding:1px 7px;border-radius:9px;z-index:2}
 .ocard .ph .mwrap{height:150px}
+.oapps{display:flex;flex-direction:column;gap:14px}
+.oapp .pics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.oapp .pics .mwrap{height:220px;border-radius:8px;overflow:hidden}
+.oapp .pics small{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}
+@media (max-width:640px){.oapp .pics{grid-template-columns:1fr}.oapp .pics .mwrap{height:200px}}
 .cards.large{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 .cards.large .ocard .ph .mwrap{height:200px}
 .cards.medium{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
@@ -934,8 +939,8 @@ function walkPanel(){
 
 /* ---------- Observation media: photos + short videos, highlight ring, label ---------- */
 const MAX_VIDEO_SEC=30, MAX_RAW_VIDEO=10*1024*1024, LABEL_MAX=40;
-const OBS_MODES=[['large','Large icons'],['medium','Medium icons'],['small','Small icons'],['thumbs','Thumbnails'],['details','Details'],['report','Report view']];
-try{S.obsMode=localStorage.getItem('sbc_obsmode')||'large';S.recMode=localStorage.getItem('sbc_recmode')||'details';S.obsDetailMode=localStorage.getItem('sbc_obsdmode')||'app';}catch(e){S.obsMode='large';S.recMode='details';S.obsDetailMode='app';}
+const OBS_MODES=[['app','App view'],['large','Large icons'],['medium','Medium icons'],['small','Small icons'],['thumbs','Thumbnails'],['details','Details'],['report','Report view']];
+try{S.obsMode=localStorage.getItem('sbc_obsmode')||'app';S.recMode=localStorage.getItem('sbc_recmode')||'details';S.obsDetailMode=localStorage.getItem('sbc_obsdmode')||'app';}catch(e){S.obsMode='app';S.recMode='details';S.obsDetailMode='app';}
 function isAdmin(){return myRole().role==='admin';}
 function obsMedia(o,after){
   const k=after?'afterMedia':'media';
@@ -1267,19 +1272,31 @@ function dateSelect(){
 }
 function vObs(){
   const rows=obsFiltered();S.obsOrder=rows.map(function(o){return o.id;});
-  const fl=S.filter||'Open';const dp=S.deptFilter;const mode=S.obsMode||'large';
+  const fl=S.filter||'Open';const dp=S.deptFilter;const mode=S.obsMode||'app';
   let right='<span class="desk-only">'+deskUnit()+'</span>'+(can('capture')?'<button type="button" class="btn primary" data-go="capture">'+ic('plus',18)+'New observation</button>':'');
   let x=head('Observations','Unsafe acts and conditions, with before and after photos',right);
   x+='<div class="content">'+banners()+'<div class="btnrow" style="justify-content:space-between"><div class="seg" role="group" aria-label="Show">'+['Open','Overdue','Closed','All'].map(function(k){return '<button type="button" data-filter="'+k+'" aria-pressed="'+(fl===k)+'">'+k+'</button>';}).join('')+'</div>';
   x+='<div class="btnrow"><label for="deptf" class="hidden-sr">Department</label><select class="in" id="deptf" style="min-height:40px;width:auto"><option value="">All departments</option>'+unitObj().depts.map(function(d){return '<option'+(d===dp?' selected':'')+'>'+h(d)+'</option>';}).join('')+'</select>'+dateSelect()+modeSelect('viewmode',mode)+'<button type="button" class="btn small" data-go="repDaily">Today\'s report</button><button type="button" class="btn small" data-go="repWeekly">Weekly report</button></div></div>';
   if(S.queue.length)x+='<div class="panel"><header><h2>Waiting to send</h2></header><div class="rows">'+S.queue.map(function(q){return '<div class="row" style="cursor:default"><span class="t"><b>'+h(q.body.note||'Observation')+'</b><small>'+h(q.body.dept)+' · saved on this phone</small></span><span class="pill warn">Not sent</span></div>';}).join('')+'</div></div>';
   if(!rows.length)return x+'<div class="panel"><div class="empty">No observations here yet. Tap New observation to add one with a photo – it appears here and on the daily report.</div></div></div>';
-  if(mode==='report')x+=obsRegister(rows,fl,dp);
+  if(mode==='app')x+='<div class="oapps">'+rows.map(obsAppRow).join('')+'</div>';
+  else if(mode==='report')x+=obsRegister(rows,fl,dp);
   else if(mode==='details')x+='<div class="panel"><div class="tablewrap"><table class="list"><thead><tr><th style="width:60px"><span class="hidden-sr">Photo</span></th><th>Date</th><th>Department</th><th>Type</th><th>Observation</th><th>Risk</th><th>Responsible</th><th>Target</th><th>Status</th></tr></thead><tbody>'+rows.map(function(o){return '<tr class="click" data-go="obsDetail" data-id="'+h(o.id)+'" tabindex="0"><td>'+coverHtml(o,false,'xs')+'</td><td class="num" style="white-space:nowrap">'+fmtD(o.date)+'</td><td>'+h(o.dept)+'</td><td>'+h(o.kind)+'</td><td class="clamp"><span class="two">'+(o.label?'<b>'+h(o.label)+':</b> ':'')+h(o.note||'(no note)')+'</span>'+repeatPill(o)+'</td><td>'+riskPill(o)+'</td><td>'+h(o.owner)+'</td><td class="num" style="white-space:nowrap">'+fmtD(o.target)+'</td><td>'+pillFor(obsStatus(o))+'</td></tr>';}).join('')+'</tbody></table></div></div>';
   else if(mode==='small')x+='<div class="panel"><div class="rows">'+rows.map(function(o){return '<button type="button" class="row" data-go="obsDetail" data-id="'+h(o.id)+'">'+coverHtml(o,false,'sm')+'<span class="t"><b>'+(o.label?h(o.label)+' – ':'')+h(o.note||'(no note)')+'</b><small>'+h(o.dept)+' · '+h(o.kind)+' · '+fmtD(o.date)+'</small></span>'+riskPill(o)+pillFor(obsStatus(o))+'</button>';}).join('')+'</div></div>';
   else if(mode==='thumbs')x+='<div class="tgrid">'+rows.map(function(o){const st=obsStatus(o);return '<button type="button" class="tcell'+(isHigh(o)&&st!=='Closed'?' hi':'')+'" data-go="obsDetail" data-id="'+h(o.id)+'" title="'+h(o.note||'')+'">'+coverHtml(o,false,'sq')+'<span class="tc"><i class="dot '+st+'" aria-label="'+st+'"></i>'+h(o.dept)+'</span></button>';}).join('')+'</div>';
   else x+='<div class="cards '+(mode==='medium'?'medium':'large')+'">'+rows.map(obsCard).join('')+'</div>';
   return x+'</div>';
+}
+/* App view in the list: each observation as its own panel with before/after photos and Open / Edit / Delete, like the App view of one observation */
+function obsAppRow(o){
+  const st=obsStatus(o);
+  let x='<section class="panel oapp"><header><h2 style="font-size:16px;overflow-wrap:anywhere">'+h(o.dept)+' · '+h(o.kind)+(o.label?' – '+h(o.label):'')+'</h2><span class="btnrow">'+riskPill(o)+repeatPill(o)+pillFor(st)+'</span></header>';
+  x+='<div class="body" style="display:flex;flex-direction:column;gap:10px">';
+  x+='<div class="pics"><div><small>Before</small>'+coverHtml(o,false,'')+'</div><div><small>After</small>'+coverHtml(o,true,'')+'</div></div>';
+  x+='<p style="margin:0;overflow-wrap:anywhere">'+h(o.note||'(no note)')+'</p>'+(o.action?'<p style="margin:0;overflow-wrap:anywhere"><b>Action needed:</b> '+h(o.action)+'</p>':'');
+  x+='<small style="color:var(--muted)">Raised '+fmtD(o.date)+' · responsible: '+(o.owner?h(o.owner):'not set')+' · target '+(o.target?fmtD(o.target):'not set')+'</small>';
+  x+='<div class="btnrow"><button type="button" class="btn small" data-go="obsDetail" data-id="'+h(o.id)+'">Open</button>'+(isAdmin()?'<button type="button" class="btn small" data-act="obsedit" data-id="'+h(o.id)+'">Edit</button>':'')+(can('write')?'<button type="button" class="btn danger small" data-act="delobs" data-id="'+h(o.id)+'">'+(S.confirmDel===o.id?'Tap again to delete':'Delete')+'</button>':'')+'</div>';
+  return x+'</div></section>';
 }
 function obsCard(o){
   const st=obsStatus(o);
@@ -2834,7 +2851,10 @@ document.addEventListener('click',async function(e){
   if(a==='fixwording')return fixWording();
   if(a==='closeobs')return closeObs(t.dataset.id);
   if(a==='reopen'){const o=(S.data.obs||[]).find(function(r){return r.id===t.dataset.id;});if(o){const b=stripId(o);b.status='Open';delete b.closedAt;try{await writeDoc('obs',o.id,b);toast('Reopened.');}catch(err){toast('Could not reopen.');}}return;}
-  if(a==='delobs'||a==='delrec'){const id=t.dataset.id;if(S.confirmDel!==id){S.confirmDel=id;render();return;}S.confirmDel=null;try{await removeDoc(a==='delobs'?'obs':t.dataset.col,id);toast('Deleted.');go(a==='delobs'?'obs':(t.dataset.col==='permits'?'permits':'recList'),a==='delobs'?null:{col:t.dataset.col});}catch(err){toast('Could not delete.');}return;}
+  if(a==='delobs'||a==='delrec'){const id=t.dataset.id;if(S.confirmDel!==id){S.confirmDel=id;render();return;}S.confirmDel=null;
+    // deleting from one observation's page moves on to the next one (or the previous one at the end of the list)
+    let nextId=null;if(a==='delobs'&&S.view==='obsDetail'){const ord=obsNavOrder().filter(function(x){return x!==id;});const p=obsNavOrder().indexOf(id);nextId=ord[p]||ord[p-1]||null;if(S.obsOrder)S.obsOrder=ord;}
+    try{await removeDoc(a==='delobs'?'obs':t.dataset.col,id);toast('Deleted.');if(nextId){S.after=null;go('obsDetail',{id:nextId});}else go(a==='delobs'?'obs':(t.dataset.col==='permits'?'permits':'recList'),a==='delobs'?null:{col:t.dataset.col});}catch(err){toast('Could not delete.');}return;}
   if(a==='newrec')return newRec(t.dataset.col);
   if(a==='editrec')return editRec(t.dataset.col,t.dataset.id);
   if(a==='cancelform'){const f=S.form;S.form=null;if(f&&f.id)go('recView',{col:f.col,id:f.id});else go(f&&f.col==='permits'?'permits':'recList',{col:f?f.col:''});return;}
