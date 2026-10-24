@@ -139,6 +139,11 @@ a{color:var(--brand)}
 .field small{color:var(--muted);font-size:12px}
 .in{min-height:46px;border:1px solid var(--line-strong);border-radius:9px;padding:0 12px;background:var(--surface);width:100%}
 textarea.in{padding:10px 12px;min-height:96px;resize:vertical}
+.sugwrap{position:relative}
+.sug{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.18);max-height:260px;overflow:auto;padding:4px}
+.sug button{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;min-height:42px;padding:0 10px;border:0;border-radius:7px;background:none;color:var(--ink);font:inherit;cursor:pointer}
+.sug button:hover,.sug button[aria-selected="true"]{background:var(--tint)}
+.sug button small{color:var(--muted);font-size:12px}
 .checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px 14px}
 .checks label{display:flex;gap:10px;align-items:flex-start;min-height:36px;font-weight:400;font-size:14px}
 .checks input{width:20px;height:20px;margin-top:1px;accent-color:var(--brand)}
@@ -1138,7 +1143,7 @@ function vCapture(){
   x+='<div class="btnrow"><button type="button" class="btn small" data-act="fixwording">✨ Fix wording</button><small style="color:var(--muted)">Tamil, English or mixed – turns your note into report English and suggests the action.</small></div>';
   x+='</div>';
   x+='<div class="field wide"><label for="capaction">Action needed (suggestion)</label><textarea class="in" id="capaction" rows="2" placeholder="What should be done to fix it">'+h(d.action||'')+'</textarea></div>';
-  x+='<div class="field"><label for="capowner">Responsible (HOD / supervisor)</label><input class="in" id="capowner" value="'+h(d.owner)+'" placeholder="Name"></div>';
+  x+='<div class="field"><label for="capowner">Responsible (HOD / supervisor)</label><div class="sugwrap"><input class="in" id="capowner" value="'+h(d.owner)+'" placeholder="Type the first letters" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="capownersug"><div class="sug" id="capownersug" role="listbox" aria-label="Suggested names" hidden></div></div><small>Names from Settings contacts and earlier observations.</small></div>';
   x+='<div class="field"><label for="captarget">Target date to close</label><input class="in" type="date" id="captarget" value="'+h(d.target)+'"></div>';
   x+='</form><div class="sticky-save">'+cancel+'<button type="button" class="btn primary" data-act="capsave" id="capsave">'+(edit?'Save changes':'Save observation')+'</button></div></div>';
   return x;
@@ -1742,6 +1747,39 @@ function autoFillOwner(){
   const f=S.form;if(!f||f.kind!=='capture')return;const d=f.draft;const c=deptContact(f.unitId||S.unit,d.dept);
   if(c.hod&&(!d.owner||d.owner===f.autoOwner)){d.owner=c.hod;f.autoOwner=c.hod;}
 }
+
+/* ---------- Responsible name suggestions (HOD / backup contacts + earlier observations) ---------- */
+function ownerNames(){
+  const by={};
+  function add(n,dept){n=String(n||'').trim();if(!n)return;const k=n.toLowerCase();const e=by[k]||(by[k]={name:n,depts:[]});if(dept&&e.depts.indexOf(dept)<0)e.depts.push(dept);}
+  (S.settings.units||[]).forEach(function(u){const cs=u.contacts||{};Object.keys(cs).forEach(function(dp){add(cs[dp].hod,dp);add(cs[dp].bk,dp);});});
+  (S.data.obs||[]).forEach(function(o){add(o.owner,o.dept);});
+  return Object.keys(by).map(function(k){return by[k];});
+}
+function ownerMatches(q){
+  q=String(q||'').trim().toLowerCase();if(!q)return [];
+  return ownerNames().filter(function(e){const n=e.name.toLowerCase();return n.indexOf(q)===0||n.split(/\s+/).some(function(w){return w.indexOf(q)===0;});})
+    .sort(function(a,b){const pa=a.name.toLowerCase().indexOf(q)===0?0:1,pb=b.name.toLowerCase().indexOf(q)===0?0:1;return pa-pb||a.name.localeCompare(b.name);}).slice(0,8);
+}
+function showOwnerSug(){
+  const inp=document.getElementById('capowner'),box=document.getElementById('capownersug');if(!inp||!box)return;
+  const m=ownerMatches(inp.value);
+  if(!m.length||(m.length===1&&m[0].name===inp.value.trim())){hideOwnerSug();return;}
+  box.innerHTML=m.map(function(e,i){return '<button type="button" role="option" id="capownersug'+i+'" data-ownerpick="'+h(e.name)+'" aria-selected="false">'+h(e.name)+(e.depts.length?'<small>'+h(e.depts.join(', '))+'</small>':'')+'</button>';}).join('');
+  box.hidden=false;inp.setAttribute('aria-expanded','true');inp.removeAttribute('aria-activedescendant');
+}
+function hideOwnerSug(){const inp=document.getElementById('capowner'),box=document.getElementById('capownersug');if(box){box.hidden=true;box.innerHTML='';}if(inp){inp.setAttribute('aria-expanded','false');inp.removeAttribute('aria-activedescendant');}}
+function pickOwner(n){const inp=document.getElementById('capowner');if(inp)inp.value=n;if(S.form&&S.form.kind==='capture')S.form.draft.owner=n;hideOwnerSug();}
+document.addEventListener('input',function(e){if(e.target.id==='capowner')showOwnerSug();});
+document.addEventListener('mousedown',function(e){const b=e.target.closest&&e.target.closest('[data-ownerpick]');if(b){e.preventDefault();pickOwner(b.dataset.ownerpick);}});
+document.addEventListener('focusout',function(e){if(e.target.id==='capowner')setTimeout(hideOwnerSug,150);});
+document.addEventListener('keydown',function(e){
+  if(e.target.id!=='capowner')return;const box=document.getElementById('capownersug');if(!box||box.hidden)return;
+  const opts=Array.prototype.slice.call(box.querySelectorAll('[data-ownerpick]'));let i=opts.findIndex(function(o){return o.getAttribute('aria-selected')==='true';});
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();i=e.key==='ArrowDown'?(i+1)%opts.length:(i<=0?opts.length-1:i-1);opts.forEach(function(o,j){o.setAttribute('aria-selected',String(j===i));});opts[i].scrollIntoView({block:'nearest'});e.target.setAttribute('aria-activedescendant',opts[i].id);}
+  else if(e.key==='Enter'&&i>=0){e.preventDefault();pickOwner(opts[i].dataset.ownerpick);}
+  else if(e.key==='Escape'){e.stopPropagation();hideOwnerSug();}
+});
 
 /* ---------- Risk rating ---------- */
 const RISKS=['High','Medium','Low'];const RISK_DAYS={High:1,Medium:7,Low:15};
