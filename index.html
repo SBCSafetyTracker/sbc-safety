@@ -741,16 +741,16 @@ async function flushQueue(){
     }
     toast('Saved observations have been sent.');
   }catch(e){}
-  flushing=false;render();
+  flushing=false;softRender();
 }
-window.addEventListener('online',function(){flushQueue();render();});
-window.addEventListener('offline',function(){render();});
+window.addEventListener('online',function(){flushQueue();softRender();});
+window.addEventListener('offline',function(){softRender();});
 setInterval(flushQueue,30000);
 
 /* ---------- rendering ---------- */
 let raf=0;
 function render(){cancelAnimationFrame(raf);raf=requestAnimationFrame(paint);}
-function softRender(){if(S.form){S.pending=true;return;}render();}
+function softRender(){if(S.form||(S.dirtyView&&S.dirtyView===S.view)){S.pending=true;return;}render();}
 function paint(){
   const app=document.getElementById('app');
   const r=myRole().role;
@@ -1216,7 +1216,7 @@ async function aiWording(o){
   const t=await aiText(prompt);const m=t.match(/\{[\s\S]*\}/);const j=JSON.parse(m?m[0]:t);
   return {note:String(j.observation||'').trim(),action:String(j.action||'').trim(),label:String(j.label||'').trim()};
 }
-function aiErr(e){const c=e&&e.message;toast(c==='slow'?'Gemini took too long to answer. Try again in a minute.':c==='nokey'?'Add the AI key in Settings → AI wording first.':c==='badkey'?'The AI key was not accepted. Check it in Settings → AI wording.':'Could not fix the wording right now. Check the internet and try again.');}
+function aiErr(e){const c=e&&e.message;toast(c==='slow'?'Gemini took too long to answer. Try again in a minute.':c==='nokey'?'No AI key on this device yet. Open Settings → AI wording and paste the Gemini key once on this phone or laptop.':c==='badkey'?'The AI key was not accepted. Check it in Settings → AI wording.':'Could not fix the wording right now. Check the internet and try again.');}
 async function fixWording(){
   readCapture();const d=S.form.draft;if(!d.note.trim()){toast('Write a note first.');return;}
   const b=document.querySelector('[data-act="fixwording"]');if(b){b.disabled=true;b.textContent='Fixing…';}
@@ -1739,7 +1739,7 @@ async function logSent(id,to,field){
 }
 function contactsPanel(){
   const st=S.settings;
-  let x='<section class="panel"><header><h2>Departments and contacts</h2><small style="color:var(--muted)">Type over a department name to rename it (its observations follow). Fill the last empty row to add a new department. Picking a department in a new observation fills in the HOD, and the Send buttons go to these numbers.</small></header><div class="body" style="display:flex;flex-direction:column;gap:18px">';
+  let x='<section class="panel"><header><h2>Departments and contacts</h2><small style="color:var(--muted)">Type over a department name to rename it (its observations follow). Clear a name to remove that department. Fill the last empty row to add a new one. Picking a department in a new observation fills in the HOD, and the Send buttons go to these numbers.</small></header><div class="body" style="display:flex;flex-direction:column;gap:18px">';
   st.units.forEach(function(u,ui){
     x+='<div><b style="display:block;margin-bottom:8px">'+h(u.name)+'</b><div class="tablewrap"><table class="list ctab"><thead><tr><th>Department</th><th>HOD name</th><th>HOD mobile</th><th>HOD email</th><th>Backup name</th><th>Backup mobile</th><th>Backup email</th></tr></thead><tbody>';
     u.depts.forEach(function(d,di){const c=(u.contacts||{})[d]||{};const f=function(k,type,ph){return '<td><input class="in" type="'+type+'" data-ct="'+ui+'|'+di+'|'+k+'" value="'+h(c[k]||'')+'" placeholder="'+ph+'" aria-label="'+h(d)+' '+k+'"></td>';};
@@ -1749,25 +1749,43 @@ function contactsPanel(){
     x+='</tbody></table></div></div>';
   });
   x+='<div class="form"><div class="field"><label for="s_dirmail">Directors\' email(s) for the weekly scorecard</label><input class="in" id="s_dirmail" type="email" multiple value="'+h(st.dirMail||'')+'" placeholder="e.g. stalin@sbcmail.in, lenin@sbcmail.in"></div><div class="field"><label for="s_dirmob">Directors\' WhatsApp number (or group admin)</label><input class="in" id="s_dirmob" type="tel" value="'+h(st.dirMob||'')+'" placeholder="Mobile number"></div></div>';
-  x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="savecontacts">Save contacts</button></div></div></section>';
+  x+='</div></section>';
   return x;
 }
-async function saveContacts(){
-  const st=JSON.parse(JSON.stringify(S.settings));
+function applyContacts(st){
   document.querySelectorAll('[data-ct]').forEach(function(el){const p=el.dataset.ct.split('|');const u=st.units[+p[0]];const d=u&&u.depts[+p[1]];if(!d)return;u.contacts=u.contacts||{};u.contacts[d]=u.contacts[d]||{};u.contacts[d][p[2]]=el.value.trim();});
   const dm=document.getElementById('s_dirmail');if(dm)st.dirMail=dm.value.trim();const dmo=document.getElementById('s_dirmob');if(dmo)st.dirMob=dmo.value.trim();
-  const renames=[];let added=0,skipped=0;
-  document.querySelectorAll('[data-dn]').forEach(function(el){const p=el.dataset.dn.split('|');const u=st.units[+p[0]];const di=+p[1];const old=u&&u.depts[di];const nw=el.value.trim();if(!old||!nw||nw===old)return;
+  const renames=[],rm={};let added=0,skipped=0,removed=0;
+  document.querySelectorAll('[data-dn]').forEach(function(el){const p=el.dataset.dn.split('|');const u=st.units[+p[0]];const di=+p[1];const old=u&&u.depts[di];const nw=el.value.trim();if(!old||nw===old)return;
+    if(!nw){(rm[+p[0]]=rm[+p[0]]||[]).push(di);return;}
     if(u.depts.indexOf(nw)>=0){skipped++;return;}
     u.depts[di]=nw;u.contacts=u.contacts||{};if(u.contacts[old]){u.contacts[nw]=u.contacts[old];delete u.contacts[old];}
     if(u.zones)u.zones=u.zones.map(function(z){return z===old?nw:z;});renames.push({unit:u.id,old:old,nw:nw});});
   document.querySelectorAll('[data-dnew]').forEach(function(el){const ui=+el.dataset.dnew;const u=st.units[ui];const nw=el.value.trim();if(!u||!nw)return;
     if(u.depts.indexOf(nw)>=0){skipped++;return;}
     u.depts.push(nw);u.contacts=u.contacts||{};const c={};document.querySelectorAll('[data-ctn^="'+ui+'|"]').forEach(function(i){c[i.dataset.ctn.split('|')[1]]=i.value.trim();});u.contacts[nw]=c;added++;});
+  Object.keys(rm).forEach(function(ui){const u=st.units[+ui];rm[ui].sort(function(a,b){return b-a;}).forEach(function(di){const d=u.depts[di];u.depts.splice(di,1);if(u.contacts)delete u.contacts[d];if(u.zones)u.zones=u.zones.filter(function(z){return z!==d;});removed++;});});
+  return {renames:renames,added:added,skipped:skipped,removed:removed};
+}
+async function saveContacts(){return saveAllSettings();}
+async function saveAllSettings(){
+  const st=JSON.parse(JSON.stringify(S.settings));
+  const g=function(id){const el=document.getElementById(id);return el?el.value:null;};
+  if(g('s_company')!==null){st.company=g('s_company').trim()||DEFAULT_SETTINGS.company;st.place=g('s_place').trim();st.address=g('s_address').split('\n').map(function(l){return l.trim();}).filter(Boolean).join('\n');st.docPrefix=g('s_prefix').trim()||'SBC/OHSE';}
+  st.units.forEach(function(u,i){if(g('s_un'+i)!==null)u.name=g('s_un'+i).trim()||u.name;if(g('s_uz'+i)!==null)u.zones=g('s_uz'+i).split('\n').map(function(x){return x.trim();}).filter(Boolean);});
+  if(g('s_sd')!==null){st.sendDaily=g('s_sd').trim();st.sendWeekly=g('s_sw').trim();}
+  Object.keys(st.roles||{}).forEach(function(id){
+    const r=document.querySelector('[data-role="'+CSS.escape(id)+'"]'),u=document.querySelector('[data-runit="'+CSS.escape(id)+'"]'),d=document.querySelector('[data-rdepts="'+CSS.escape(id)+'"]');
+    if(r)st.roles[id].role=r.value;if(u)st.roles[id].units=u.value?[u.value]:[];if(d)st.roles[id].depts=d.value.split(',').map(function(x){return x.trim();}).filter(Boolean);
+  });
+  const info=applyContacts(st);const renames=info.renames;
+  const btn=document.querySelector('[data-act="saveall"]');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   await putSettings(st);
   let moved=0;
   for(const r of renames){for(const o of (S.data.obs||[]).filter(function(o){return o.unit===r.unit&&o.dept===r.old;})){const b=stripId(o);b.dept=r.nw;try{await writeDoc('obs',o.id,b);moved++;}catch(e){}}}
-  toast('Saved.'+(added?' '+added+' department added.':'')+(renames.length?' '+renames.length+' renamed'+(moved?', '+moved+' observation(s) moved to the new name':'')+'.':'')+(skipped?' '+skipped+' name(s) already exist – not changed.':''));
+  S.savedAt=Date.now();S.dirtyView=null;
+  toast('All changes saved ✓'+(info.added?' '+info.added+' department added.':'')+(info.removed?' '+info.removed+' department removed.':'')+(renames.length?' '+renames.length+' renamed'+(moved?', '+moved+' observation(s) moved to the new name':'')+'.':'')+(info.skipped?' '+info.skipped+' name(s) already exist – not changed.':''));
+  render();
 }
 function autoFillOwner(){
   const f=S.form;if(!f||f.kind!=='capture')return;const d=f.draft;const c=deptContact(f.unitId||S.unit,d.dept);
@@ -1796,7 +1814,9 @@ function showOwnerSug(){
 }
 function hideOwnerSug(){const inp=document.getElementById('capowner'),box=document.getElementById('capownersug');if(box){box.hidden=true;box.innerHTML='';}if(inp){inp.setAttribute('aria-expanded','false');inp.removeAttribute('aria-activedescendant');}}
 function pickOwner(n){const inp=document.getElementById('capowner');if(inp)inp.value=n;if(S.form&&S.form.kind==='capture')S.form.draft.owner=n;hideOwnerSug();}
-document.addEventListener('input',function(e){if(e.target.id==='capowner')showOwnerSug();});
+document.addEventListener('input',function(e){if(e.target.id==='capowner')showOwnerSug();
+  const app=document.getElementById('app');if(!S.form&&app&&app.contains(e.target)&&e.target.id!=='psearch'&&e.target.type!=='file'){S.dirtyView=S.view;const ss=document.getElementById('savestate');if(ss){ss.textContent='Unsaved changes';ss.className='pill warn';}}
+});
 document.addEventListener('mousedown',function(e){const b=e.target.closest&&e.target.closest('[data-ownerpick]');if(b){e.preventDefault();pickOwner(b.dataset.ownerpick);}});
 document.addEventListener('focusout',function(e){if(e.target.id==='capowner')setTimeout(hideOwnerSug,150);});
 document.addEventListener('keydown',function(e){
@@ -2100,7 +2120,7 @@ function extList(rows){
   const done=rows.filter(extCheckedThisMonth).length;const bad=rows.filter(function(r){return extCond(r)==='Needs attention';}).length;
   const due=rows.filter(function(r){const a=daysTo(r.refillDue),b=daysTo(r.hptDue);return (a!=null&&a<=30)||(b!=null&&b<=30);}).length;
   let x='<section class="tiles"><div class="tile" style="cursor:default"><div class="l">Extinguishers</div><div class="n">'+rows.length+'</div></div><div class="tile'+(done<rows.length?' warn':'')+'" style="cursor:default"><div class="l">Checked this month</div><div class="n">'+done+' / '+rows.length+'</div></div><div class="tile'+(bad?' bad':'')+'" style="cursor:default"><div class="l">Need attention</div><div class="n">'+bad+'</div></div><div class="tile'+(due?' warn':'')+'" style="cursor:default"><div class="l">Refill / hydro due in 30 days</div><div class="n">'+due+'</div></div></section>';
-  x+='<small style="color:var(--muted)">Send the photos with locations in the Claude chat and the type, capacity and dates can be read from the labels and filled in.</small>';
+  x+='<small style="color:var(--muted)">Tip: take a clear photo of each extinguisher label when you add it, so the type, capacity and dates can be checked later.</small>';
   return x+extQuick(rows)+'<div class="xgrid">'+rows.map(extCard).join('')+'</div>';
 }
 /* quick monthly check: one tap marks every unchecked extinguisher at a location as all OK */
@@ -2706,18 +2726,17 @@ function vSettings(){
   let x=head('Settings','Company details, units and departments, people and roles, backup','');
   x+='<div class="content" style="max-width:960px">'+banners();
   x+='<section class="panel"><header><h2>Report header</h2></header><div class="body"><div class="form"><div class="field"><label for="s_company">Company name</label><input class="in" id="s_company" value="'+h(st.company)+'"></div><div class="field"><label for="s_place">Place</label><input class="in" id="s_place" value="'+h(st.place)+'"></div><div class="field wide"><label for="s_address">Address on reports – one line per row, like a letter</label><textarea class="in" id="s_address" rows="4">'+h(addrLines().join('\n'))+'</textarea></div><div class="field"><label for="s_prefix">Document number prefix</label><input class="in" id="s_prefix" value="'+h(st.docPrefix)+'"></div></div></div></section>';
-  x+='<section class="panel"><header><h2>Units and departments</h2></header><div class="body"><div class="form">'+st.units.map(function(u,i){return '<div class="field wide"><label for="s_un'+i+'">Unit name</label><input class="in" id="s_un'+i+'" value="'+h(u.name)+'"><label for="s_ud'+i+'">Departments (one per line)</label><textarea class="in" id="s_ud'+i+'">'+h(u.depts.join('\n'))+'</textarea><label for="s_uz'+i+'">2S zones (one per line – leave empty to use the departments)</label><textarea class="in" id="s_uz'+i+'">'+h((u.zones||[]).join(String.fromCharCode(10)))+'</textarea></div>';}).join('')+'</div></div></section>';
+  x+='<section class="panel"><header><h2>Units and departments</h2></header><div class="body"><div class="form">'+st.units.map(function(u,i){return '<div class="field wide"><label for="s_un'+i+'">Unit name</label><input class="in" id="s_un'+i+'" value="'+h(u.name)+'"><small style="color:var(--muted)">Departments: rename, add or remove them in the Departments and contacts table below.</small><label for="s_uz'+i+'">2S zones (one per line – leave empty to use the departments)</label><textarea class="in" id="s_uz'+i+'">'+h((u.zones||[]).join(String.fromCharCode(10)))+'</textarea></div>';}).join('')+'</div></div></section>';
   x+=contactsPanel();
   x+='<section class="panel"><header><h2>Send list</h2></header><div class="body"><div class="form"><div class="field wide"><label for="s_sd">Daily report goes to</label><input class="in" id="s_sd" value="'+h(st.sendDaily)+'" placeholder="e.g. HODs WhatsApp group, plant head email"></div><div class="field wide"><label for="s_sw">Weekly / 15-day summary goes to</label><input class="in" id="s_sw" value="'+h(st.sendWeekly)+'" placeholder="e.g. management email addresses"></div></div></div></section>';
-  x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="savesettings">Save settings</button></div>';
   x+='<section class="panel"><header><h2>People and roles</h2></header><div class="body" style="display:flex;flex-direction:column;gap:14px">';
   x+='<small style="color:var(--muted)">Admin sees everything. Safety officer: one unit, everything except settings. HOD: own departments – observations and reports. Management: reports only. People sign in with their own @sbcmail.in Google account.</small>';
   if(S.user&&!S.demo){x+='<div class="field"><label for="psearch">Add a person – type their company email</label><input class="in" id="psearch" placeholder="e.g. mrsbc4@sbcmail.in" autocomplete="off" inputmode="email"></div><div id="presults" class="rows"></div>';}
   else x+='<div class="banner info">People can be added when the app is opened from its link.</div>';
   const ids=Object.keys(st.roles||{});
   x+='<div class="tablewrap"><table class="list"><thead><tr><th>Person</th><th>Role</th><th>Units</th><th>Departments (HOD)</th><th></th></tr></thead><tbody>'+(ids.length?ids.map(function(id){const r=st.roles[id];return '<tr><td data-name="'+h(id)+'">'+h(S.names[id]||'…')+'</td><td><select class="in" data-role="'+h(id)+'" aria-label="Role">'+['officer','hod','management','admin'].map(function(k){return '<option value="'+k+'"'+(r.role===k?' selected':'')+'>'+ROLE_LABEL[k]+'</option>';}).join('')+'</select></td><td><select class="in" data-runit="'+h(id)+'" aria-label="Unit"><option value="">All units</option>'+st.units.map(function(u){return '<option value="'+u.id+'"'+((r.units||[])[0]===u.id?' selected':'')+'>'+h(u.name)+'</option>';}).join('')+'</select></td><td><input class="in" data-rdepts="'+h(id)+'" value="'+h((r.depts||[]).join(', '))+'" placeholder="e.g. PDC, GDC" aria-label="Departments"></td><td><button type="button" class="btn small ghost" data-act="rmperson" data-id="'+h(id)+'">Remove</button></td></tr>';}).join(''):'<tr><td colspan="5" style="color:var(--muted)">Only you (owner, Admin) for now.</td></tr>')+'</tbody></table></div>';
-  if(ids.length)x+='<div class="btnrow" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="saveroles">Save roles</button></div>';
   x+='</div></section>';
+  x+='<div class="sticky-save" style="align-items:center;z-index:5"><span id="savestate" class="pill '+(S.dirtyView==='settings'?'warn':S.savedAt?'ok':'plain')+'">'+(S.dirtyView==='settings'?'Unsaved changes':S.savedAt?'All changes saved ✓ '+new Date(S.savedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'Change anything above, then save')+'</span><button type="button" class="btn primary" data-act="saveall">Save all changes</button></div>';
   x+=aiPanel();
   x+='<section class="panel"><header><h2>Backup and restore</h2></header><div class="body" style="display:flex;flex-direction:column;gap:12px"><small style="color:var(--muted)">The backup file holds all records and settings (photos stay stored in the app). Keep a copy on your D drive or Google Drive every week.</small><div class="btnrow">'+(S.dl?'<button type="button" class="btn" data-act="backup">'+ic('down',18)+'Download backup</button>':'')+'<label class="btn filebtn">Restore from backup file<input type="file" accept="application/json,.json" id="restorefile"></label></div>'+(S.restore?'<div class="banner">Restore will add or overwrite '+S.restore.count+' records from '+h(S.restore.name)+'. <button type="button" class="btn small" data-act="dorestore">Restore now</button> <button type="button" class="btn small ghost" data-act="cancelrestore">Cancel</button></div>':'')+'</div></section>';
   return x+'</div>';
@@ -2741,7 +2760,7 @@ async function saveSettings(){
   await putSettings(st);toast('Settings saved.');
 }
 async function putSettings(st){
-  S.settings=st;
+  S.settings=st;S.dirtyView=null;
   if(S.demo||!S.db){render();return;}
   try{await S.db.doc('config/settings').set(JSON.parse(JSON.stringify(st)));}catch(e){toast('Could not save settings.');}
 }
@@ -2810,6 +2829,7 @@ function go(v,arg){
   if(S.form&&v!=='recForm'&&v!=='capture'&&v!=='zsForm'&&v!=='compItem'){S.form=null;}
   if(v!=='capture')S.prev=v; S.view=v;S.arg=arg||null;S.confirmDel=null;
   if(S.pending){S.pending=false;}
+  S.dirtyView=null;
   try{localStorage.setItem('sbc_view',JSON.stringify({v:v,arg:arg||null}));}catch(e){}
   render();window.scrollTo(0,0);
 }
@@ -2863,10 +2883,10 @@ document.addEventListener('click',async function(e){
   if(a==='permit'){const r=(S.data.permits||[]).find(function(x){return x.id===t.dataset.id;});if(!r)return;const b=stripId(r);b.status=t.dataset.s;if(b.status==='Approved'){b.approvedAt=new Date().toISOString();b.approvedBy=S.uid||'';}if(b.status==='Closed')b.closedAt=new Date().toISOString();try{await writeDoc('permits',r.id,b);toast('Permit '+b.status.toLowerCase()+'.');}catch(err){toast('Could not update the permit.');}return;}
   if(a==='pdf')return makePdf(t.dataset.name,t);
   if(a==='copytext'){const txt=t.dataset.text;try{await navigator.clipboard.writeText(txt);toast('Summary copied. Paste it into Gmail or WhatsApp.');}catch(err){toast('Copy is blocked here. Use the WhatsApp button instead.');}return;}
-  if(a==='savesettings')return saveSettings();
-  if(a==='addperson'){const st=readRoles();st.roles=st.roles||{};st.roles[t.dataset.id]={role:'officer',units:[S.unit],depts:[]};await putSettings(st);toast('Added. Set the role, then Save roles.');return;}
-  if(a==='rmperson'){const st=readRoles();delete st.roles[t.dataset.id];await putSettings(st);toast('Removed.');return;}
-  if(a==='saveroles'){await putSettings(readRoles());toast('Roles saved.');return;}
+  if(a==='savesettings'||a==='saveall')return saveAllSettings();
+  if(a==='addperson'){if(S.dirtyView==='settings')await saveAllSettings();const st=readRoles();st.roles=st.roles||{};st.roles[t.dataset.id]={role:'officer',units:[S.unit],depts:[]};await putSettings(st);toast('Added. Set the role, then tap Save all changes.');return;}
+  if(a==='rmperson'){if(S.dirtyView==='settings')await saveAllSettings();const st=readRoles();delete st.roles[t.dataset.id];await putSettings(st);toast('Removed.');return;}
+  if(a==='saveroles')return saveAllSettings();
   if(a==='backup')return backup();
   if(a==='togglemore'){S.moreOpen=!S.moreOpen;try{localStorage.setItem('sbc_more',S.moreOpen?'1':'0');}catch(err){}render();return;}
   if(a==='signout'){if(window.SBCStore)window.SBCStore.signOut();return;}
