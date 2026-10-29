@@ -2336,12 +2336,18 @@ function recBits(col,r){
   const rest=vals.filter(function(v){return v!==st&&v!==main&&txtOf(v.html);}).map(function(v){return txtOf(v.html);});
   return {title:txtOf(main.html)||REC[col].one,sub:rest.join(' · '),pill:st?st.html:''};
 }
+/* Fire extinguishers follow the AMC service report's row order; ones added later (no report row) come after, by ID */
+function extOrder(a,b){
+  const ra=a.amc&&a.amc.row,rb=b.amc&&b.amc.row;
+  if(ra&&rb)return ra-rb;if(ra)return -1;if(rb)return 1;
+  return String(a.tag||'').localeCompare(String(b.tag||''),undefined,{numeric:true});
+}
 function vRecList(col){
   const R=REC[col];let rows=list(col).slice();
   rows.sort(col==='certs'?function(a,b){return String(a.expiry).localeCompare(String(b.expiry));}:byNewest);
   let mode=S.recMode||'details';
   if(col==='ppe'||col==='visitors'||col==='firstaid'){S.cardMode=S.cardMode||{};mode=S.cardMode[col]||'cards';}
-  if(col==='ext'){mode=S.extMode||'cards';rows.sort(function(a,b){return String(a.tag||'').localeCompare(String(b.tag||''),undefined,{numeric:true});});}
+  if(col==='ext'){mode=S.extMode||'cards';rows.sort(extOrder);}
   let x=head(R.label,R.sub+' · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(R.register?'<button type="button" class="btn" data-go="repRegister" data-col="'+col+'">Register / PDF</button>':'')+(col==='trainings'?'<button type="button" class="btn" data-go="tcal">Training calendar</button>':'')+(col==='certs'&&can('write')?'<button type="button" class="btn" data-act="compimport">'+ic('down',18)+'Import certificate PDFs</button>':'')+'<button type="button" class="btn primary" data-act="newrec" data-col="'+col+'">'+ic('plus',18)+'Add '+h(R.one.toLowerCase().replace('ppe','PPE'))+'</button>');
   x+='<div class="content">'+banners();
   if(!rows.length)return x+'<div class="panel"><div class="empty">No '+h(R.label.toLowerCase())+' yet for '+h(unitName())+'. Use Add '+h(R.one.toLowerCase().replace('ppe','PPE'))+' to create the first one.'+(col==='ppe'&&can('write')?' <button type="button" class="btn small" data-act="ppeseed" style="margin-left:6px">Add the standard PPE list</button>':'')+'</div></div></div>';
@@ -2625,7 +2631,7 @@ function vRepRegister(col){
   const R=REC[col];let rows=list(col).slice();
   const month=S.regMonth||today().slice(0,7);
   if(R.dated)rows=rows.filter(function(r){return String(r.date||'').slice(0,7)===month;});
-  rows.sort(function(a,b){return String(a.date||a.expiry||a.tag||a.item||'').localeCompare(String(b.date||b.expiry||b.tag||b.item||''));});
+  rows.sort(col==='ext'?extOrder:function(a,b){return String(a.date||a.expiry||a.tag||a.item||'').localeCompare(String(b.date||b.expiry||b.tag||b.item||''));});
   let fields=R.fields.filter(function(f){return f.t!=='photos'&&f.t!=='textarea';});
   if(col==='ppe')fields=[{k:'item',t:'text',l:'PPE item'},{k:'spec',t:'text',l:'Type / standard'},{k:'sizes',t:'text',l:'Sizes'},{k:'_stock',t:'calc',l:'In stock',f:function(r){return ppeTotal(r);}},{k:'_in',t:'calc',l:'Received this month',f:function(r){return ppeMonth(r,'in');}},{k:'_out',t:'calc',l:'Issued this month',f:function(r){return ppeMonth(r,'out');}},{k:'minLevel',t:'text',l:'Minimum'},{k:'_st',t:'calc',l:'Status',f:function(r){return lowStock(r)?'RE-ORDER':'OK';}}];
   if(col==='visitors')fields=[{k:'date',t:'date',l:'Date'},{k:'name',t:'text',l:'Name'},{k:'company',t:'text',l:'Company'},{k:'kind',t:'text',l:'Type'},{k:'meeting',t:'text',l:'Meeting'},{k:'timeIn',t:'text',l:'In'},{k:'timeOut',t:'text',l:'Out'},{k:'induction',t:'text',l:'Induction'},{k:'_ppe',t:'calc',l:'PPE given',f:function(r){return (r.ppeGiven||[]).join(', ');}},{k:'permitNo',t:'text',l:'Permit no.'},{k:'_sig',t:'calc',l:'Signature',f:function(){return '';}}];
