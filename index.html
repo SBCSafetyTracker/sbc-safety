@@ -483,6 +483,7 @@ const ICON = {
   visitors:'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M18 15c2 1 3 3 3 5',
   incidents:'M12 3l10 18H2zM12 10v5M12 18v.5',
   firstaid:'M4 7h16v13H4zM9 7V4h6v3M12 11v6M9 14h6',
+  audit:'M9 3h6v3H9zM7 5H5v16h14V5h-2M9 13l2 2 4-4',
   back:'M15 6l-6 6 6 6', chev:'M9 6l6 6-6 6', plus:'M12 5v14M5 12h14', down:'M12 4v12M6 10l6 6 6-6M5 20h14'
 };
 function ic(name,size){size=size||20;return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+ICON[name]+'"/></svg>';}
@@ -644,7 +645,7 @@ const REC = {
     cols:[['date','Date',function(r){return fmtD(r.date);}],['name','Name'],['dept','Department'],['injury','Injury'],['outcome','After treatment',function(r){return faPill(r);}]]}
 };
 const RECORD_ORDER = ['trainings','drills','certs','ext','ppe','visitors','incidents','firstaid'];
-const COLS = ['obs','walks','zs','comp','tcal'].concat(Object.keys(REC));
+const COLS = ['obs','walks','zs','comp','tcal','audits'].concat(Object.keys(REC));
 const ZS_CRIT = [
   ['Sort','No unwanted items, tools or material in the zone'],
   ['Sort','Scrap and rejects kept only in the marked bin'],
@@ -823,7 +824,7 @@ function paint(){
   if(v==='settings')wireSettings();
 }
 function navItem(v,label,icon,cur){return '<button type="button" class="nav" data-go="'+v+'"'+(cur?' aria-current="page"':'')+'>'+ic(icon)+h(label)+'</button>';}
-function section(){const v=S.view;if(v==='obs'||v==='obsDetail')return 'obs';if(v==='permits'||(S.arg&&S.arg.col==='permits'))return 'permits';if(v.indexOf('rep')===0||v==='reports')return 'reports';if(v==='records'||v==='recList'||v==='recView'||v==='recForm'||v==='zs'||v==='zsForm'||v==='comp'||v==='compItem'||v==='tcal'||v==='ppeLog')return 'records';return v;}
+function section(){const v=S.view;if(v==='obs'||v==='obsDetail')return 'obs';if(v==='permits'||(S.arg&&S.arg.col==='permits'))return 'permits';if(v.indexOf('rep')===0||v==='reports')return 'reports';if(v==='records'||v==='recList'||v==='recView'||v==='recForm'||v==='zs'||v==='zsForm'||v==='comp'||v==='compItem'||v==='tcal'||v==='ppeLog'||v==='audits'||v==='auditForm')return 'records';return v;}
 function side(){
   const s=section();let x='<nav class="side" aria-label="Main menu"><div class="brandblock"><b>'+h(S.settings.company)+'</b><span>OHSE · Safety Tracker</span></div>';
   x+=navItem('home','Home','home',s==='home');
@@ -897,6 +898,9 @@ function viewHtml(v){
     case 'compItem':return vCompItem();
     case 'tcal':return vTcal();
     case 'ppeLog':return vPpeLog();
+    case 'audits':return vAudits();
+    case 'auditForm':return vAuditForm();
+    case 'repAudit':return vRepAudit();
     case 'settings':return vSettings();
     case 'more':return vMore();
   }
@@ -907,6 +911,7 @@ function viewAllowed(v){
   if(v==='capture')return can('capture');
   if(v==='obs'||v==='obsDetail')return can('obs');
   if(v==='settings')return can('settings');
+  if(v==='audits')return can('write')||can('reports');
   if(v.indexOf('rep')===0||v==='reports')return can('reports');
   if(v==='recView')return can('view')||can('write');
   return can('write');
@@ -2426,7 +2431,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.ge
 function vRecords(){
   let x=head('Records','Everything kept for audits, filed by date and unit','<span class="desk-only">'+deskUnit()+'</span>');
   const zw=zsWeekAvg(S.unit,weekStart());
-  x+='<div class="content">'+banners()+'<button type="button" class="ctile" data-go="comp"><span class="ic">'+ic('certs')+'</span><span class="t"><b>Statutory compliance</b><small>Licences, third-party certificates, registers and records · '+(function(){const c=compSummary();return c.done+' of '+c.tot+' complete'+(c.exp?' · '+c.exp+' expired':'')+(c.due?' · '+c.due+' due soon':'');})()+'</small></span>'+ic('chev',18)+'</button><button type="button" class="ctile" data-go="tcal"><span class="ic">'+ic('trainings')+'</span><span class="t"><b>Training calendar 2026 – 27</b><small>November to October · induction first, then job-specific'+(tcalThisMonth().length?' · '+tcalThisMonth().length+' due this month':'')+'</small></span>'+ic('chev',18)+'</button><div class="morelist"><button type="button" class="mtile" data-go="zs"><span class="ic">'+ic('records')+'</span><b>2S zone score</b><small>Weekly · '+(zw==null?'not scored yet':zw+'% this week')+'</small></button>'+RECORD_ORDER.map(function(c){const n=list(c).length;return '<button type="button" class="mtile" data-go="recList" data-col="'+c+'"><span class="ic">'+ic(REC[c].icon)+'</span><b>'+h(REC[c].label)+'</b><small>'+h(REC[c].sub)+' · '+n+'</small></button>';}).join('')+'</div></div>';
+  x+='<div class="content">'+banners()+'<button type="button" class="ctile" data-go="comp"><span class="ic">'+ic('certs')+'</span><span class="t"><b>Statutory compliance</b><small>Licences, third-party certificates, registers and records · '+(function(){const c=compSummary();return c.done+' of '+c.tot+' complete'+(c.exp?' · '+c.exp+' expired':'')+(c.due?' · '+c.due+' due soon':'');})()+'</small></span>'+ic('chev',18)+'</button><button type="button" class="ctile" data-go="tcal"><span class="ic">'+ic('trainings')+'</span><span class="t"><b>Training calendar 2026 – 27</b><small>November to October · induction first, then job-specific'+(tcalThisMonth().length?' · '+tcalThisMonth().length+' due this month':'')+'</small></span>'+ic('chev',18)+'</button><div class="morelist"><button type="button" class="mtile" data-go="audits"><span class="ic">'+ic('audit')+'</span><b>Machine safety audits</b><small>LPDC checklist · '+list('audits').length+'</small></button><button type="button" class="mtile" data-go="zs"><span class="ic">'+ic('records')+'</span><b>2S zone score</b><small>Weekly · '+(zw==null?'not scored yet':zw+'% this week')+'</small></button>'+RECORD_ORDER.map(function(c){const n=list(c).length;return '<button type="button" class="mtile" data-go="recList" data-col="'+c+'"><span class="ic">'+ic(REC[c].icon)+'</span><b>'+h(REC[c].label)+'</b><small>'+h(REC[c].sub)+' · '+n+'</small></button>';}).join('')+'</div></div>';
   return x;
 }
 function txtOf(s){return String(s==null?'':s).replace(/<[^>]*>/g,'').trim();}
@@ -2655,6 +2660,7 @@ function vReports(){
   x+=repRow('repDaily','','Daily observation report','Every day · before and after photos');
   x+=repRow('repWeekly','','Weekly observation report','Monday to Saturday · all departments · send as PDF');
   x+=repRow('rep2S','','Weekly 2S zone score','Zone ranking, Sort and Set in order, change from last week');
+  x+=repRow('audits','','Machine safety audits','LPDC checklist · findings, risk and actions · PDF');
   x+=repRow('repSummary','','Weekly / 15-day management summary','All units on one page');
   x+='</div></section><section class="panel"><header><h2>Per event</h2></header><div class="rows">';
   ['trainings','drills','incidents','permits'].forEach(function(c){x+=repRow('recList',c,REC[c].report.charAt(0)+REC[c].report.slice(1).toLowerCase(),list(c).length+' saved · open one to download');});
@@ -2825,6 +2831,174 @@ function vRep2S(){
   return x;
 }
 
+/* ---------- Machine safety audits (10-11-2026): checklist filled on the phone, report as PDF ---------- */
+const AUDIT_TPL={
+  lpdc:{name:'LPDC machine safety audit',report:'LPDC MACHINE SAFETY AUDIT REPORT',dept:'LPDC',sections:[
+    ['A','Documents & records',['OEM operation & maintenance manual available at machine (language understood by operators)','Electrical, hydraulic & pneumatic circuit drawings available and up to date','Machine-specific Risk Assessment / HIRA available and reviewed within last 12 months','Machine-specific SOP displayed at machine','Machine-specific LOTO procedure available and displayed','Preventive maintenance (PM) schedule and records up to date','Previous audit findings closed / action plan tracked','Incident & near-miss records for this machine reviewed','Operator training & authorization records available','Modification / change records (MOC) available for any changes to machine']],
+    ['B','Holding furnace & crucible (molten metal)',['Furnace lid / cover seal in good condition, no metal leakage marks','Metal run-out pit / spill tray provided below furnace and kept dry & clean','Furnace over-temperature cut-off functional (test record available)','Thermocouples healthy and calibrated (calibration record)','Refractory / crucible inspection schedule followed, condition recorded','Ingots, returns & tools preheated / dried before charging (procedure followed)','No water source, hose or wet area near furnace / metal path','Hot surfaces insulated or guarded; HOT SURFACE signage displayed','Furnace burner / heater controls and flame failure device working (if gas fired)','Fluxing / degassing done as per procedure with fume extraction']],
+    ['C','Pressurization system (air / N2, riser tube)',['Pressure relief / safety valve provided, set pressure correct, tested (record)','Pressure gauges calibrated and readable','Maximum pressure limit / over-pressure interlock functional','Interlock prevents die opening until pressure is fully released','Riser tube / stalk inspected for cracks, erosion; replacement record available','Air / gas hoses, fittings and couplings in good condition, no leaks','Hose whip restraints provided on high-pressure lines','N2 cylinders (if used) secured, regulators healthy, stored properly']],
+    ['D','Die, clamping & moving parts',['Die area guarded (fixed or interlocked guards / light curtain / scanner)','Guard interlocks stop all hazardous motion when opened (live tested)','No evidence of interlock bypass (tape, jumper wire, magnet, removed switch)','Light curtain / scanner functional; safety distance adequate (ISO 13855)','Core pulls, ejectors & side cylinders guarded against crush / shear','Mechanical die safety block / locking pin available for die maintenance','Hydraulic accumulator has pressure dump valve and gauge','Die clamping bolts / clamps secured; die change procedure available','Two-hand control (if fitted) works correctly – anti-tie-down & simultaneity','Gravity fall hazard of die / platen controlled (counterbalance / check valve)','Pinch points marked with yellow-black hazard paint']],
+    ['E','Emergency stops & controls',['E-stop buttons provided at every operator / access position','Each E-stop tested – stops hydraulics, pressure & all motion','E-stop requires manual reset; machine does not restart automatically on reset','E-stop buttons red on yellow background, unobstructed, labelled','Control panel buttons clearly labelled, mode selector (Auto/Manual/Setting) key-protected','Alarms & indicator lamps (stack light) functional','Safety PLC / safety relay fault indication healthy, no active faults']],
+    ['F','Hydraulic power pack',['No oil leakage from pump, valves, hoses, cylinders','Hydraulic hoses in good condition, not near hot zones, hose expiry tracked','Fire-resistant hydraulic fluid used near molten metal (if specified by OEM)','Oil level, temperature & filter indicators healthy','Pressure relief valve set correctly and sealed','Drip tray provided; floor free of oil']],
+    ['G','Electrical safety',['Main isolator lockable and clearly identified','Electrical panel doors closed and locked; key controlled','Panel interior clean, no dust / oil / loose wiring / missing covers','Earthing provided and earth resistance test record available','ELCB / RCCB provided and tested','Cables protected from heat, metal splash & mechanical damage','Danger / shock / arc-flash warning labels on panels','Insulating mat provided in front of electrical panel','Thermography of panel done (record available)']],
+    ['H','Lockout / tagout (LOTO)',['All energy sources identified (electrical, hydraulic, pneumatic, gas, thermal, gravity)','Each energy source has a lockable isolation point','Personal locks, tags & hasps available','Stored energy release (accumulator, pressure, gravity) included in procedure','Try-out / zero-energy verification step practised','Operators & maintenance staff able to explain LOTO steps (interview)']],
+    ['I','Casting removal, robot & manipulator',['Hot castings handled with proper tongs / grippers; no bare-hand contact','Designated cooling area for castings, barricaded and marked','Robot cell fully fenced; access door interlocked','Robot teach mode reduced speed & enabling device functional','Conveyor / transfer: nip points guarded, pull-cord / E-stop provided','Lifting tackles for die / casting inspected, SWL marked, test certificate valid']],
+    ['J','Die coating, fumes & ventilation',['Die coating / spray area has local exhaust ventilation working','Coating chemicals labelled, MSDS / SDS available at point of use','Respiratory protection provided where required','General shop ventilation adequate; no fume accumulation','Air monitoring (dust / fume) record available']],
+    ['K','Fire & emergency preparedness',['Class D extinguisher / dry sand available near furnace','Signage: DO NOT USE WATER ON MOLTEN METAL displayed','Fire extinguishers inspected (tag date valid), access unobstructed','Emergency exit route clear and marked','Burn first-aid kit / burn gel and eye-wash available nearby','Molten metal spill / emergency procedure known to operators']],
+    ['L','Personal protective equipment (PPE)',['Aluminised / heat-resistant apron worn by furnace & ladle operators','Face shield / safety goggles worn','Heat-resistant gloves worn and in good condition','Safety shoes (metal-splash resistant, elastic sided) worn','Flame-retardant clothing (no synthetic garments) worn','Ear protection worn where noise > 85 dB(A)','PPE issue & replacement register maintained']],
+    ['M','Work environment & ergonomics',['Floor dry, clean, free of oil, scrap and trip hazards','Walkways & machine area marked; access platforms with handrails & toe boards','Lighting adequate at operator & maintenance positions','Noise level measured; high-noise area marked','Heat stress controls (spot cooling, drinking water, rest breaks) in place','Manual lifting within limits; lifting aids provided for heavy items','Housekeeping (5S) standard maintained around machine']],
+    ['N','Training & behaviour',['Operator trained & authorised on this machine (check card / record)','Operator knows emergency stop locations & spill procedure (interview)','No unsafe practices observed (reaching into die area, bypass, shortcuts)','Supervisor conducts daily pre-start checklist (record)','Toolbox talks conducted; records available']]
+  ]}
+};
+const AUDIT_FORM_KEY='sbc_audit_form';
+function auditTpl(k){return AUDIT_TPL[k]||AUDIT_TPL.lpdc;}
+function auditItems(k){const out=[];auditTpl(k).sections.forEach(function(s){s[2].forEach(function(t,i){out.push({key:s[0]+(i+1),sec:s[0],secName:s[1],text:t});});});return out;}
+function riskOf(a){const s=Number(a&&a.sev)||0,l=Number(a&&a.lik)||0;if(!s||!l)return null;const v=s*l;return {v:v,lvl:v>=15?'HIGH':v>=8?'MEDIUM':'LOW'};}
+function riskPill(r){if(!r)return '<span class="pill plain">Not rated</span>';return '<span class="pill '+(r.lvl==='HIGH'?'bad':r.lvl==='MEDIUM'?'warn':'ok')+'">'+r.lvl+' · '+r.v+'</span>';}
+function auditCalc(au,keys){
+  const A=au.answers||{};const c={tot:0,y:0,n:0,na:0,hi:0,me:0,lo:0,unrated:0,open:0};
+  auditItems(au.tpl).forEach(function(it){
+    if(keys&&keys.indexOf(it.key)<0)return;c.tot++;const a=A[it.key];if(!a||!a.s)return;
+    if(a.s==='Yes')c.y++;else if(a.s==='NA')c.na++;
+    else if(a.s==='No'){c.n++;const r=riskOf(a);if(!r)c.unrated++;else if(r.lvl==='HIGH')c.hi++;else if(r.lvl==='MEDIUM')c.me++;else c.lo++;if(!a.closed)c.open++;}
+  });
+  c.done=c.y+c.n+c.na;c.pct=(c.y+c.n)?Math.round(100*c.y/(c.y+c.n)):null;return c;
+}
+function auditDoc(id){return (S.data.audits||[]).find(function(r){return r.id===id;});}
+function auditNo(au){return S.settings.docPrefix+'/SA/'+String(au.date||'').replace(/-/g,'')+(au.machine?'/'+au.machine:'');}
+function persistAuditForm(){try{if(S.form&&S.form.kind==='audit')localStorage.setItem(AUDIT_FORM_KEY,JSON.stringify(S.form));}catch(e){}}
+function dropAuditForm(){try{localStorage.removeItem(AUDIT_FORM_KEY);}catch(e){}}
+function savedAuditForm(){try{const f=JSON.parse(localStorage.getItem(AUDIT_FORM_KEY)||'null');return f&&f.kind==='audit'?f:null;}catch(e){return null;}}
+
+function vAudits(){
+  const rows=list('audits').slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''))||byNewest(a,b);});
+  let x=head('Machine safety audits','LPDC machine checklist · '+unitName(),'<span class="desk-only">'+deskUnit()+'</span>'+(can('write')?'<button type="button" class="btn primary" data-act="audnew">'+ic('plus',18)+'Start new audit</button>':''));
+  x+='<div class="content">'+banners();
+  const sv=savedAuditForm();
+  if(sv&&can('write'))x+='<div class="banner info">An audit you were filling on this phone was not saved yet'+(sv.draft&&sv.draft.machine?' ('+h(sv.draft.machine)+')':'')+'. <button type="button" class="btn small" data-act="audresume">Continue it</button> <button type="button" class="btn small ghost" data-act="auddiscard">Discard</button></div>';
+  if(!rows.length)return x+'<div class="panel"><div class="empty">No machine audits yet for '+h(unitName())+'.'+(can('write')?' Tap Start new audit, walk the machine and answer each point Yes, No or NA.':'')+'</div></div></div>';
+  x+='<div class="panel"><div class="tablewrap"><table class="list"><thead><tr><th>Date</th><th>Machine</th><th>Department</th><th class="num">Answered</th><th>Compliance</th><th class="num">High risk</th><th class="num">Open actions</th><th>Status</th></tr></thead><tbody>';
+  x+=rows.map(function(r){const c=auditCalc(r);const act=r.status==='Completed'?'data-go="repAudit" data-id="'+h(r.id)+'"':'data-act="audedit" data-id="'+h(r.id)+'"';
+    return '<tr '+act+' tabindex="0" style="cursor:pointer"><td>'+fmtD(r.date)+'</td><td><b>'+h(r.machine||'—')+'</b>'+(r.make?'<br><small style="color:var(--muted)">'+h(r.make)+'</small>':'')+'</td><td>'+h(r.dept||'')+'</td><td class="num">'+c.done+' / '+c.tot+'</td><td>'+pctPill(c.pct)+'</td><td class="num">'+(c.hi?'<span class="pill bad">'+c.hi+'</span>':'0')+'</td><td class="num">'+c.open+'</td><td>'+(r.status==='Completed'?'<span class="pill ok">Completed</span>':'<span class="pill warn">Draft</span>')+'</td></tr>';}).join('');
+  x+='</tbody></table></div></div><small style="color:var(--muted)">Risk = Severity (1–5) × Likelihood (1–5). 15–25 High: act at once · 8–14 Medium: within 1–4 weeks · 1–7 Low: plan and correct.</small></div>';
+  return x;
+}
+function startAudit(id){
+  let d;
+  if(id){const cur=auditDoc(id);if(!cur){toast('That audit is not on this phone yet.');return;}d=stripId(cur);}
+  else d={tpl:'lpdc',unit:S.unit,date:today(),machine:'',make:'',dept:auditTpl('lpdc').dept,auditors:S.myName||'',incharge:'',answers:{},status:'Draft'};
+  d.answers=d.answers||{};
+  Object.keys(d.answers).forEach(function(k){d['p_'+k]=(d.answers[k].photos||[]).slice();});
+  S.form={kind:'audit',id:id||null,draft:d};persistAuditForm();go('auditForm');
+}
+function ansOf(k){const A=S.form.draft.answers;return A[k]=A[k]||{};}
+function vAuditForm(){
+  const f=S.form;if(!f||f.kind!=='audit')return head('No audit open','')+'<div class="content"><button type="button" class="btn" data-go="audits">Back to machine audits</button></div>';
+  const d=f.draft;const T=auditTpl(d.tpl);const c=auditCalc(d);const depts=unitObj(d.unit).depts||[];
+  let x=head(T.name,unitName(d.unit)+(d.machine?' · '+d.machine:''),'<span class="pill plain" style="font-size:15px">'+c.done+' / '+c.tot+' answered'+(c.pct!=null?' · '+c.pct+'%':'')+'</span>');
+  x+='<div class="content" style="max-width:960px">'+banners();
+  x+='<section class="panel"><header><h2>Audit details</h2></header><div class="body"><div class="form">'
+   +'<div class="field"><label for="au_machine">Machine no / ID *</label><input class="in" id="au_machine" value="'+h(d.machine)+'" placeholder="e.g. LPDC-03"></div>'
+   +'<div class="field"><label for="au_make">Make / model</label><input class="in" id="au_make" value="'+h(d.make)+'"></div>'
+   +'<div class="field"><label for="au_dept">Department</label><select class="in" id="au_dept">'+depts.concat(depts.indexOf(d.dept)<0&&d.dept?[d.dept]:[]).map(function(n){return '<option'+(n===d.dept?' selected':'')+'>'+h(n)+'</option>';}).join('')+'</select></div>'
+   +'<div class="field"><label for="au_date">Audit date</label><input class="in" type="date" id="au_date" value="'+h(d.date)+'"></div>'
+   +'<div class="field"><label for="au_auditors">Auditor(s)</label><input class="in" id="au_auditors" value="'+h(d.auditors)+'"></div>'
+   +'<div class="field"><label for="au_incharge">Area in-charge</label><input class="in" id="au_incharge" value="'+h(d.incharge)+'"></div>'
+   +'</div></div></section>';
+  T.sections.forEach(function(s){
+    const keys=s[2].map(function(t,i){return s[0]+(i+1);});const sc=auditCalc(d,keys);
+    x+='<section class="panel"><header><h2>'+h(s[0]+'. '+s[1])+'</h2><span class="pill '+(sc.done===sc.tot?'ok':'plain')+'">'+sc.done+' / '+sc.tot+'</span></header><div class="rows">';
+    s[2].forEach(function(t,i){
+      const k=s[0]+(i+1);const a=d.answers[k]||{};
+      x+='<div class="row" style="cursor:default;flex-wrap:wrap" id="ai_'+k+'"><span class="t"><b style="font-weight:500">'+h(k+'. '+t)+'</b></span><div class="seg" role="group" aria-label="Answer for '+h(k)+'">'+['Yes','No','NA'].map(function(v){return '<button type="button" data-aus="'+k+'" data-v="'+v+'" aria-pressed="'+(a.s===v)+'">'+v+'</button>';}).join('')+'</div></div>';
+      if(a.s==='No'){
+        const r=riskOf(a);
+        x+='<div class="form" style="padding:4px 16px 16px;border-bottom:1px solid var(--line);background:var(--tint)">'
+         +'<div class="field wide"><label for="au_obs_'+k+'">What did you see? (finding)</label><textarea class="in" id="au_obs_'+k+'" rows="2">'+h(a.obs)+'</textarea></div>'
+         +'<div class="field wide"><span class="lab">Photos</span><div class="photos" id="ph_p_'+k+'">'+photosInner('p_'+k,d['p_'+k])+'</div></div>'
+         +'<div class="field"><span class="lab">Severity (1 negligible – 5 fatal)</span><div class="seg" role="group">'+[1,2,3,4,5].map(function(n){return '<button type="button" data-aur="'+k+'" data-f="sev" data-v="'+n+'" aria-pressed="'+(Number(a.sev)===n)+'">'+n+'</button>';}).join('')+'</div></div>'
+         +'<div class="field"><span class="lab">Likelihood (1 rare – 5 almost certain)</span><div class="seg" role="group">'+[1,2,3,4,5].map(function(n){return '<button type="button" data-aur="'+k+'" data-f="lik" data-v="'+n+'" aria-pressed="'+(Number(a.lik)===n)+'">'+n+'</button>';}).join('')+'</div></div>'
+         +'<div class="field wide"><span class="lab">Risk</span><div>'+riskPill(r)+'</div></div>'
+         +'<div class="field wide"><label for="au_act_'+k+'">Corrective action</label><textarea class="in" id="au_act_'+k+'" rows="2">'+h(a.action)+'</textarea></div>'
+         +'<div class="field"><label for="au_resp_'+k+'">Responsibility</label><input class="in" id="au_resp_'+k+'" value="'+h(a.resp)+'"></div>'
+         +'<div class="field"><label for="au_tgt_'+k+'">Target date</label><input class="in" type="date" id="au_tgt_'+k+'" value="'+h(a.target)+'"></div>'
+         +'</div>';
+      }
+    });
+    x+='</div></section>';
+  });
+  x+='<div class="sticky-save"><button type="button" class="btn ghost" data-act="audcancel">Close</button><button type="button" class="btn" data-act="audsave" data-done="0">Save draft</button><button type="button" class="btn primary" data-act="audsave" data-done="1">Complete audit</button></div></div>';
+  return x;
+}
+function readAudit(){
+  const f=S.form;if(!f||f.kind!=='audit')return;const d=f.draft;
+  const g=function(id){const el=document.getElementById(id);return el?el.value:null;};
+  [['machine','au_machine'],['make','au_make'],['dept','au_dept'],['date','au_date'],['auditors','au_auditors'],['incharge','au_incharge']].forEach(function(p){const v=g(p[1]);if(v!=null)d[p[0]]=p[0]==='date'?v:v.trim();});
+  Object.keys(d.answers).forEach(function(k){const a=d.answers[k];if(a.s!=='No')return;
+    const o=g('au_obs_'+k),ac=g('au_act_'+k),rs=g('au_resp_'+k),tg=g('au_tgt_'+k);
+    if(o!=null)a.obs=o;if(ac!=null)a.action=ac;if(rs!=null)a.resp=rs;if(tg!=null)a.target=tg;});
+  persistAuditForm();
+}
+function readAnyForm(){if(!S.form)return;if(S.form.kind==='zs')readZs();else if(S.form.kind==='audit')readAudit();else readRecForm();}
+function keepScroll(){const y=window.scrollY;render();requestAnimationFrame(function(){requestAnimationFrame(function(){window.scrollTo(0,y);});});}
+async function saveAudit(done,btn){
+  readAudit();const f=S.form;const d=JSON.parse(JSON.stringify(f.draft));
+  if(!d.machine){toast('Type the machine no / ID at the top.');const el=document.getElementById('au_machine');if(el)el.focus();return;}
+  Object.keys(d).forEach(function(k){if(k.indexOf('p_')===0){const ak=k.slice(2);if(d.answers[ak])d.answers[ak].photos=d[k];delete d[k];}});
+  Object.keys(d.answers).forEach(function(k){const a=d.answers[k];if(a.s!=='No'){delete a.obs;delete a.sev;delete a.lik;delete a.action;delete a.resp;delete a.target;delete a.photos;delete a.closed;delete a.closedAt;}});
+  const c=auditCalc(d);
+  if(done){
+    if(c.done<c.tot){toast((c.tot-c.done)+' points are not answered yet. Answer every point (NA if it does not apply), or Save draft.');return;}
+    if(c.unrated){toast(c.unrated+' "No" points need Severity and Likelihood.');return;}
+    d.status='Completed';d.completedAt=d.completedAt||new Date().toISOString();
+  }else if(d.status!=='Completed')d.status='Draft';
+  d.updatedAt=new Date().toISOString();if(!d.createdAt){d.createdAt=d.updatedAt;d.by=S.uid||'';}
+  const id=f.id||('au'+rid());
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{await writeDoc('audits',id,d);dropAuditForm();S.form=null;toast(done?'Audit completed. The report is ready.':'Draft saved.');if(done)go('repAudit',{id:id});else go('audits');}
+  catch(e){toast('Could not save. Check the connection and try again.');if(btn){btn.disabled=false;btn.textContent=done?'Complete audit':'Save draft';}}
+}
+function vRepAudit(){
+  const id=S.arg&&S.arg.id;const au=auditDoc(id);
+  if(!au)return head('Audit not found','')+'<div class="content"><button type="button" class="btn" data-go="audits">Back to machine audits</button></div>';
+  const T=auditTpl(au.tpl);const c=auditCalc(au);const A=au.answers||{};const its=auditItems(au.tpl);
+  const finds=its.filter(function(it){return A[it.key]&&A[it.key].s==='No';}).map(function(it){return {it:it,a:A[it.key],r:riskOf(A[it.key])};}).sort(function(p,q){return (q.r?q.r.v:0)-(p.r?p.r.v:0);});
+  const text=S.settings.company+' – '+T.name+'\n'+unitName(au.unit)+' · '+(au.machine||'')+' · '+fmtD(au.date)+'\nCompliance: '+(c.pct==null?'—':c.pct+'%')+' ('+c.y+' Yes, '+c.n+' No, '+c.na+' NA)\nHigh: '+c.hi+' · Medium: '+c.me+' · Low: '+c.lo+' · Open actions: '+c.open+(finds.length?'\nTop findings:\n'+finds.slice(0,5).map(function(fd,i){return (i+1)+'. '+fd.it.text+(fd.r?' ['+fd.r.lvl+']':'');}).join('\n'):'');
+  let right=pdfButtons('Machine-audit-'+(au.machine||'')+'-'+au.date,text);
+  if(can('write'))right+='<button type="button" class="btn" data-act="audedit" data-id="'+h(au.id)+'">Edit</button><button type="button" class="btn ghost" data-act="audel" data-id="'+h(au.id)+'">'+(S.confirmDel===au.id?'Tap again to delete':'Delete')+'</button>';
+  let x=head(T.name,unitName(au.unit)+' · '+(au.machine||''),right);
+  x+='<div class="content">'+banners();
+  if(finds.length&&can('write')){
+    x+='<section class="panel"><header><h2>Corrective actions</h2><span class="pill '+(c.open?'warn':'ok')+'">'+c.open+' open</span></header><div class="rows">'+finds.map(function(fd){return '<div class="row" style="cursor:default;flex-wrap:wrap"><span class="t"><b style="font-weight:500">'+h(fd.it.key+'. '+(fd.a.action||fd.it.text))+'</b><small>'+h([fd.a.resp,fd.a.target?'Target '+fmtD(fd.a.target):''].filter(Boolean).join(' · '))+'</small></span>'+riskPill(fd.r)+' '+(fd.a.closed?'<span class="pill ok">Closed '+fmtD(String(fd.a.closedAt||'').slice(0,10))+'</span> <button type="button" class="btn small ghost" data-act="audclose" data-id="'+h(au.id)+'" data-k="'+fd.it.key+'">Reopen</button>':'<button type="button" class="btn small" data-act="audclose" data-id="'+h(au.id)+'" data-k="'+fd.it.key+'">Mark closed</button>')+'</div>';}).join('')+'</div></section>';
+  }
+  x+='<div class="sheetwrap"><article class="sheet wide" id="sheet">'+sheetHead(auditNo(au),fmtD(au.date),au.unit)+'<h3 class="title">'+h(T.report)+'</h3>';
+  x+='<table><tbody><tr><th style="width:18%">Machine no / ID</th><td>'+h(au.machine)+'</td><th style="width:18%">Make / model</th><td>'+h(au.make)+'</td></tr><tr><th>Department</th><td>'+h(au.dept)+'</td><th>Audit date</th><td>'+fmtD(au.date)+'</td></tr><tr><th>Auditor(s)</th><td>'+h(au.auditors)+'</td><th>Area in-charge</th><td>'+h(au.incharge)+'</td></tr><tr><th>Status</th><td colspan="3">'+h(au.status||'Draft')+(au.status!=='Completed'?' – '+(c.tot-c.done)+' points not answered':'')+'</td></tr></tbody></table>';
+  x+='<div class="stats"><div><b>'+(c.pct==null?'—':c.pct+'%')+'</b><span>Compliance (Yes ÷ Yes+No)</span></div><div><b>'+c.n+'</b><span>Non-compliances</span></div><div><b>'+c.hi+'</b><span>High risk</span></div><div><b>'+c.me+' / '+c.lo+'</b><span>Medium / Low</span></div><div><b>'+c.open+'</b><span>Actions open</span></div></div>';
+  x+='<div class="sec">Section-wise compliance</div><table><thead><tr><th>Section</th><th class="num">Points</th><th class="num">Yes</th><th class="num">No</th><th class="num">NA</th><th class="num">Compliance</th><th class="num">High</th></tr></thead><tbody>'+T.sections.map(function(s){const sc=auditCalc(au,s[2].map(function(t,i){return s[0]+(i+1);}));return '<tr><td>'+h(s[0]+'. '+s[1])+'</td><td class="num">'+sc.tot+'</td><td class="num">'+sc.y+'</td><td class="num">'+sc.n+'</td><td class="num">'+sc.na+'</td><td class="num"><b>'+(sc.pct==null?'—':sc.pct+'%')+'</b></td><td class="num">'+sc.hi+'</td></tr>';}).join('')+'</tbody></table>';
+  x+='<div class="sec">Findings and corrective actions (highest risk first)</div>';
+  x+=finds.length?'<table><thead><tr><th>No</th><th>Check point</th><th>Finding</th><th>Risk (S×L)</th><th>Corrective action</th><th>Responsibility</th><th>Target</th><th>Status</th></tr></thead><tbody>'+finds.map(function(fd){return '<tr><td>'+fd.it.key+'</td><td>'+h(fd.it.text)+'</td><td>'+h(fd.a.obs)+((fd.a.photos||[]).length?'<br><small>Photo '+fd.it.key+'</small>':'')+'</td><td style="white-space:nowrap">'+(fd.r?'<b>'+fd.r.lvl+'</b> '+fd.a.sev+'×'+fd.a.lik+'='+fd.r.v:'—')+'</td><td>'+h(fd.a.action)+'</td><td>'+h(fd.a.resp)+'</td><td style="white-space:nowrap">'+fmtD(fd.a.target)+'</td><td>'+(fd.a.closed?'Closed':'Open')+'</td></tr>';}).join('')+'</tbody></table>':'<p>No non-compliances found.</p>';
+  const ph=[];finds.forEach(function(fd){(fd.a.photos||[]).forEach(function(p){ph.push({p:p,k:fd.it.key});});});
+  if(ph.length)x+='<div class="sec">Photos</div><div class="pgrid" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+ph.slice(0,24).map(function(o){return '<figure style="margin:0"><img src="'+photoUrl(o.p)+'" alt=""><figcaption style="font-size:11px;text-align:center">'+h(o.k)+'</figcaption></figure>';}).join('')+'</div>';
+  x+='<div class="sec">Full checklist</div><table><thead><tr><th style="width:6%">No</th><th>Check point</th><th style="width:9%">Result</th></tr></thead><tbody>'+T.sections.map(function(s){return '<tr><td colspan="3"><b>'+h(s[0]+'. '+s[1])+'</b></td></tr>'+s[2].map(function(t,i){const k=s[0]+(i+1);const a=A[k]||{};return '<tr><td>'+k+'</td><td>'+h(t)+'</td><td>'+(a.s==='No'?'<b>No</b>':h(a.s||'—'))+'</td></tr>';}).join('');}).join('')+'</tbody></table>';
+  x+='<div style="font-size:11px;margin-top:8px">Risk = Severity (1–5) × Likelihood (1–5). 15–25 High: act at once · 8–14 Medium: within 1–4 weeks · 1–7 Low: plan and correct. Reference: ISO 12100, ISO 13849-1, ISO 14120, ISO 13855, Factories Act 1948.</div>';
+  x+=signBlock('Audited by – OHSE','Reviewed by – Plant Head')+'<div class="foot">Generated from SBC Safety Tracker · '+fmtD(today())+'</div></article></div></div>';
+  return x;
+}
+async function auditClick(t){
+  if(t.dataset.aus){readAudit();const a=ansOf(t.dataset.aus);a.s=a.s===t.dataset.v?'':t.dataset.v;if(!a.s)delete S.form.draft.answers[t.dataset.aus];persistAuditForm();keepScroll();return true;}
+  if(t.dataset.aur){readAudit();const a=ansOf(t.dataset.aur);a[t.dataset.f]=+t.dataset.v;persistAuditForm();keepScroll();return true;}
+  const a=t.dataset.act;if(!a||a.indexOf('aud')!==0)return false;
+  if(a==='audnew'){const sv=savedAuditForm();if(sv&&!confirm('An unsaved audit is on this phone. Start a new one and discard it?'))return true;dropAuditForm();startAudit(null);return true;}
+  if(a==='audresume'){const sv=savedAuditForm();if(sv){S.form=sv;go('auditForm');}return true;}
+  if(a==='auddiscard'){dropAuditForm();render();return true;}
+  if(a==='audedit'){startAudit(t.dataset.id);return true;}
+  if(a==='audsave'){await saveAudit(t.dataset.done==='1',t);return true;}
+  if(a==='audcancel'){readAudit();const f=S.form;S.form=null;toast('The unsaved answers stay on this phone – Continue it from Machine audits.');if(f&&f.id&&auditDoc(f.id)&&auditDoc(f.id).status==='Completed')go('repAudit',{id:f.id});else go('audits');return true;}
+  if(a==='audel'){const id=t.dataset.id;if(S.confirmDel!==id){S.confirmDel=id;render();return true;}S.confirmDel=null;try{await removeDoc('audits',id);toast('Deleted.');go('audits');}catch(err){toast('Could not delete.');}return true;}
+  if(a==='audclose'){const au=auditDoc(t.dataset.id);if(!au)return true;const b=stripId(au);const x=b.answers&&b.answers[t.dataset.k];if(!x)return true;if(x.closed){delete x.closed;delete x.closedAt;}else{x.closed=true;x.closedAt=new Date().toISOString();}try{await writeDoc('audits',au.id,b);toast(x.closed?'Action closed.':'Action reopened.');}catch(err){toast('Could not update.');}return true;}
+  return false;
+}
+
 /* ---------- More (phone) ---------- */
 function vMore(){
   let x=head('More',(S.myName||'')+' · '+ROLE_LABEL[myRole().role],'<button type="button" class="btn small" data-act="rename">Change name</button>');
@@ -2919,6 +3093,8 @@ function parentOf(v,arg){
     case 'comp':case 'tcal':case 'zs':return {v:'records'};
     case 'ppeLog':return {v:'recList',arg:{col:'ppe'}};
     case 'zsForm':return {v:'zs'};
+    case 'audits':return {v:'records'};
+    case 'auditForm':case 'repAudit':return {v:'audits'};
     case 'repDaily':case 'repWeekly':case 'repSummary':case 'rep2S':return {v:'reports'};
     case 'settings':case 'emergency':return {v:'more'};
   }
@@ -2930,7 +3106,8 @@ function navBack(){
   while(t&&t.v===S.view&&JSON.stringify(t.arg||null)===JSON.stringify(S.arg||null))t=S.hist.pop();
   if(!t)t=parentOf(S.view,S.arg);
   S.navBack=true;
-  if(t.v==='capture'||t.v==='compItem'||t.v==='recForm'||t.v==='zsForm')t=parentOf(t.v,t.arg);
+  if(S.form&&S.form.kind==='audit')readAudit();
+  if(t.v==='capture'||t.v==='compItem'||t.v==='recForm'||t.v==='zsForm'||t.v==='auditForm')t=parentOf(t.v,t.arg);
   S.after=null;S.lb=null;S.form=null;
   go(t.v,t.arg||null);
 }
@@ -2944,7 +3121,7 @@ function go(v,arg){
     if(S.hist.length>40)S.hist.shift();
   }
   S.navBack=false;
-  if(S.form&&v!=='recForm'&&v!=='capture'&&v!=='zsForm'&&v!=='compItem'){S.form=null;}
+  if(S.form&&v!=='recForm'&&v!=='capture'&&v!=='zsForm'&&v!=='compItem'&&v!=='auditForm'){S.form=null;}
   if(v!=='capture')S.prev=v; S.view=v;S.arg=arg||null;S.confirmDel=null;
   if(S.pending){S.pending=false;}
   S.dirtyView=null;
@@ -2952,8 +3129,9 @@ function go(v,arg){
   render();window.scrollTo(0,0);
 }
 document.addEventListener('click',async function(e){
-  const t=e.target.closest('[data-go],[data-act],[data-unit],[data-filter],[data-walk],[data-capdept],[data-capkind],[data-range],[data-wk],[data-zsc],[data-zsweek]');
+  const t=e.target.closest('[data-go],[data-act],[data-unit],[data-filter],[data-walk],[data-capdept],[data-capkind],[data-range],[data-wk],[data-zsc],[data-zsweek],[data-aus],[data-aur]');
   if(!t)return;
+  if(t.dataset.act!=='navback'&&await auditClick(t))return;
   if(t.dataset.act==='navback'){if(S.form&&S.form.kind==='capture'&&S.form.markIdx!=null){S.form.markIdx=null;S.form.markDraft=null;render();return;}if(S.lb){S.lb=null;render();return;}navBack();return;}
   if(await obsClick(t,e))return;
   if(await compClick(t))return;
@@ -2997,7 +3175,7 @@ document.addEventListener('click',async function(e){
   if(a==='editrec')return editRec(t.dataset.col,t.dataset.id);
   if(a==='cancelform'){const f=S.form;S.form=null;if(f&&f.id)go('recView',{col:f.col,id:f.id});else go(f&&f.col==='permits'?'permits':'recList',{col:f?f.col:''});return;}
   if(a==='saverec')return saveRec();
-  if(a==='rmphoto'){if(S.form.kind==='zs')readZs();else readRecForm();S.form.draft[t.dataset.k].splice(+t.dataset.i,1);const box=document.getElementById('ph_'+t.dataset.k);if(box)box.innerHTML=photosInner(t.dataset.k,S.form.draft[t.dataset.k]);return;}
+  if(a==='rmphoto'){readAnyForm();S.form.draft[t.dataset.k].splice(+t.dataset.i,1);const box=document.getElementById('ph_'+t.dataset.k);if(box)box.innerHTML=photosInner(t.dataset.k,S.form.draft[t.dataset.k]);return;}
   if(a==='permit'){const r=(S.data.permits||[]).find(function(x){return x.id===t.dataset.id;});if(!r)return;const b=stripId(r);b.status=t.dataset.s;if(b.status==='Approved'){b.approvedAt=new Date().toISOString();b.approvedBy=S.uid||'';}if(b.status==='Closed')b.closedAt=new Date().toISOString();try{await writeDoc('permits',r.id,b);toast('Permit '+b.status.toLowerCase()+'.');}catch(err){toast('Could not update the permit.');}return;}
   if(a==='pdf')return makePdf(t.dataset.name,t);
   if(a==='copytext'){const txt=t.dataset.text;try{await navigator.clipboard.writeText(txt);toast('Summary copied. Paste it into Gmail or WhatsApp.');}catch(err){toast('Copy is blocked here. Use the WhatsApp button instead.');}return;}
@@ -3027,10 +3205,10 @@ function pickHint(){toast('If the camera or gallery did not open, allow Camera a
 function onCapFile(file){if(file)addCapFiles([file]);}
 function onAfterFile(file,id){if(file)addAfterFiles([file],id);}
 async function onPhotos(files,k){
-  if(!S.form)return;if(S.form.kind==='zs')readZs();else readRecForm();
+  if(!S.form)return;readAnyForm();
   const box=document.getElementById('ph_'+k);if(box){const s=document.createElement('span');s.className='pill warn';s.textContent='Uploading '+files.length+'…';box.appendChild(s);}
   for(const file of files){try{const b=await compress(file);const id=await uploadPhoto(b);S.form.draft[k]=(S.form.draft[k]||[]).concat([id]);}catch(err){toast(err&&err.code==='not_granted'?'Your role cannot add photos.':'A photo could not be added. Check the connection.');}}
-  const box2=document.getElementById('ph_'+k);if(box2)box2.innerHTML=photosInner(k,S.form.draft[k]);
+  const box2=document.getElementById('ph_'+k);if(box2)box2.innerHTML=photosInner(k,S.form.draft[k]);persistAuditForm();
 }
 document.addEventListener('keydown',function(e){if(e.altKey&&e.key==='ArrowLeft'&&S.view!=='home'){e.preventDefault();navBack();return;}});
 document.addEventListener('keydown',function(e){if(e.key==='Enter'){const tr=e.target.closest&&e.target.closest('tr[data-go]');if(tr)tr.click();}});
@@ -3042,10 +3220,10 @@ document.addEventListener('change',async function(e){
   if(el.id==='capphoto'||el.id==='capgallery'){const file=el.files&&el.files[0];if(file)onCapFile(file);return;}
   if(el.id==='afterphoto'){const file=el.files&&el.files[0];if(file)onAfterFile(file,el.dataset.id);return;}
   if(el.dataset&&el.dataset.photok){
-    const k=el.dataset.photok;const files=Array.prototype.slice.call(el.files||[]);if(!files.length)return;if(S.form.kind==='zs')readZs();else readRecForm();
+    const k=el.dataset.photok;const files=Array.prototype.slice.call(el.files||[]);if(!files.length)return;readAnyForm();
     const box=document.getElementById('ph_'+k);if(box){const s=document.createElement('span');s.className='pill warn';s.textContent='Uploading '+files.length+'…';box.appendChild(s);}
     for(const file of files){try{const b=await compress(file);const id=await uploadPhoto(b);S.form.draft[k]=(S.form.draft[k]||[]).concat([id]);}catch(err){toast(err&&err.code==='not_granted'?'Your role cannot add photos.':'A photo could not be added. Check the connection.');}}
-    const box2=document.getElementById('ph_'+k);if(box2)box2.innerHTML=photosInner(k,S.form.draft[k]);return;
+    const box2=document.getElementById('ph_'+k);if(box2)box2.innerHTML=photosInner(k,S.form.draft[k]);persistAuditForm();return;
   }
   if(el.id==='f_kind'&&S.form&&S.form.col==='permits'){readRecForm();S.form.draft.checks=[];render();return;}
   if((el.id==='f_kind'||el.id==='f_outcome')&&S.form&&(S.form.col==='visitors'||S.form.col==='firstaid')){readRecForm();render();return;}
@@ -3066,7 +3244,7 @@ async function toggleWalk(dept){
 async function boot(){
   try{const q=new URLSearchParams(location.search).get('o');if(q){localStorage.setItem('sbc_open',q);history.replaceState(null,'',location.pathname+location.hash);}}catch(e){}
   try{if(localStorage.getItem('sbc_day')!==today()){localStorage.setItem('sbc_day',today());localStorage.removeItem('sbc_view');}}catch(e){}
-  try{const sv=JSON.parse(localStorage.getItem('sbc_view')||'null');if(sv&&sv.v&&['recForm','capture','compItem'].indexOf(sv.v)<0){S.view=sv.v;S.arg=sv.arg;}}catch(e){}
+  try{const sv=JSON.parse(localStorage.getItem('sbc_view')||'null');if(sv&&sv.v&&['recForm','capture','compItem','auditForm'].indexOf(sv.v)<0){S.view=sv.v;S.arg=sv.arg;}}catch(e){}
   if(S.view==='recView'&&!(S.arg&&S.arg.col&&REC[S.arg.col]))S.view='home';
   if((S.view==='recList'||S.view==='repRegister')&&!(S.arg&&REC[S.arg.col]))S.view='home';
   render();
